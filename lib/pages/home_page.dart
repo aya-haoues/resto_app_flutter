@@ -7,13 +7,13 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Menu Tawa Order', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text('Home Tawa Order', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.deepOrange,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Center(
         child: Text(
-          'Voici le menu ',
+          'Home ',
           style: TextStyle(fontSize: 20, color: Colors.grey.shade700),
         ),
       ),

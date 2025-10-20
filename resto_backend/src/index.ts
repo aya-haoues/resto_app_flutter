@@ -1,33 +1,62 @@
-import { createClient } from '@supabase/supabase-js';
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
-import * as schema from './schema';
-import dotenv from 'dotenv';
+// src/index.ts
 
-// --- Charger les variables d'environnement ---
+// 1. Ajoutez les imports nécessaires
+import { Hono } from 'hono';
+import { serve } from '@hono/node-server';
+import { createClient } from '@supabase/supabase-js'; // Importez le client Supabase
+import dotenv from 'dotenv';
+import clientsApp from './routes/clients'; // Ce fichier doit être 'tables' si vous suivez l'exemple précédent
+import tablesApp from './routes/clients'; // <--- Si vous NE POUVEZ PAS renommer le fichier
 dotenv.config({ path: './.env' });
 
-console.log('🔍 SUPABASE_DB_URL =', process.env.SUPABASE_DB_URL);
+// 2. Initialisez le client Supabase Admin
+// Assurez-vous que ces variables sont définies dans votre fichier .env
+const SUPABASE_URL = process.env.SUPABASE_URL!;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY!; // Clé Service Role (admin)
 
-// --- Vérification des variables d'environnement ---
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const DATABASE_URL = process.env.SUPABASE_DB_URL;
+const supabaseAdmin = createClient(
+  SUPABASE_URL,
+  SUPABASE_SERVICE_KEY,
+  {
+    auth: {
+      persistSession: false, // Important pour le backend/service
+    }
+  }
+);
+const app = new Hono();
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !DATABASE_URL) {
-  throw new Error(
-    '❌ Vérifiez votre fichier .env : SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY et SUPABASE_DB_URL sont requis.'
-  );
+// Monte le router clients sur /clients
+app.route('/clients', clientsApp);
+app.route('/api/table', tablesApp);
+// Test serveur
+app.get('/', (c) => c.text('Backend UP!'));
+
+const PORT = parseInt(process.env.PORT || '8080', 10);
+
+// Démarrage du serveur - CORRECTION ICI
+serve(
+    {
+        fetch: app.fetch, // Passez l'application Hono (app) via sa méthode fetch
+        port: PORT,      // Port défini
+        hostname: '0.0.0.0' // Hostname
+    },
+    // Vous n'avez pas besoin d'un second argument de type callback ici.
+);
+
+
+// --- Test de connexion Supabase ---
+async function testSupabaseConnection() {
+  const { data, error } = await supabaseAdmin
+    .from('clients')
+    .select('*')
+    .limit(1);
+
+  if (error) {
+    console.error('❌ Supabase non connecté ou erreur:', error);
+  } else {
+    console.log('✅ Supabase connecté ! Exemple de donnée:', data);
+  }
 }
 
-// --- Client Supabase (administrateur) ---
-export const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-  auth: { persistSession: false },
-});
+testSupabaseConnection(); // Appel de la fonction
 
-// --- Client PostgreSQL via Drizzle ORM ---
-const client = postgres(DATABASE_URL, { prepare: false });
-export const db = drizzle(client, { schema });
-
-// --- Export du schéma et types ---
-export * from './schema';
