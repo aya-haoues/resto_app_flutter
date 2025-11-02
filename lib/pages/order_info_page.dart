@@ -255,8 +255,10 @@ class _OrderInfoPageState extends State<OrderInfoPage>
 
                         const SizedBox(height: 24),
 
-                        // Bouton de soumission
-                        _buildSubmitButton(),
+                        // Bouton de soumission, enveloppé dans Center
+                        Center(
+                          child: _buildSubmitButton(),
+                        ),
                       ],
                     ),
                   ),
