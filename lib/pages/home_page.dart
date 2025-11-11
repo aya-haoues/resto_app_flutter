@@ -1,9 +1,21 @@
+// lib/pages/home_page.dart
 import 'package:flutter/material.dart';
-import 'menu_page.dart'; // Importation de la nouvelle page Menu
-import 'commandes_page.dart'; // Importation de la nouvelle page Menu
+import 'menu_page.dart';
+import 'commandes_page.dart';
+import '../models/food_item.dart';
+import 'order_info_page.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final String? initialClientName;
+  final int? initialTableNumber;
+  final String? initialNotes;
+
+  const HomePage({
+    super.key,
+    this.initialClientName,
+    this.initialTableNumber,
+    this.initialNotes,
+  });
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -11,135 +23,124 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
+  List<FoodItem> _panier = [];
 
+  // ✅ Nouvelles variables d'état pour les infos client
+  String? _clientName;
+  int? _tableNumber;
+  String? _notes;
+
+  // Palette de couleurs
   final Color _accentColor = const Color(0xFFFF6B35);
   final Color _backgroundColor = Colors.white;
   final Color _textPrimary = const Color(0xFF1E293B);
   final Color _textSecondary = const Color(0xFF64748B);
 
-  // Mise à jour : Données pour Cuisines et Catégories
-  final List<Category> _categories = [
-    Category('Tunisienne', '🇹🇳', Colors.red.shade100),
-    Category('Américaine', '🍔', Colors.blue.shade100),
-    Category('Italienne', '🍕', Colors.green.shade100),
-    Category('Asiatique', '🍜', Colors.purple.shade100),
-    Category('Végétarien', '🥦', Colors.lightGreen.shade100),
-    Category('Boissons', '🥤', Colors.teal.shade100),
-    Category('Desserts', '🍰', Colors.orange.shade100),
+  // --- Données fictives (maintenues ici pour la démo) ---
+  final List<Category> _categories = const [
+    Category('Tunisienne', '🇹🇳', Colors.red, 'assets/images/placeholder.jpg'),
+    Category('Américaine', '🍔', Colors.blue, 'assets/images/placeholder.jpg'),
+    Category('Italienne', '🍕', Colors.green, 'assets/images/placeholder.jpg'),
+    Category('Desserts', '🍰', Colors.orange, 'assets/images/placeholder.jpg'),
   ];
 
-  // Données fictives pour le Plat du Jour
-  final DailySpecial _dailySpecialItem = DailySpecial(
+  final DailySpecial _dailySpecialItem = const DailySpecial(
     name: 'Lablabi Spécial',
-    imagePath: 'assets/images/lablabi.jpg', // Chemin d'image fictif
+    imagePath: 'assets/images/lablabi.jpg',
     originalPrice: 7.50,
-    discountedPrice: 5.99, // Prix en Dinar Tunisien (DT)
+    discountedPrice: 5.99,
     description: 'Soupe de pois chiches épicée avec pain rassis, thon et œuf.',
   );
 
-  // Données fictives pour les Plats en Promotion
-  final List<PromotionalItem> _promotionalItems = [
-    PromotionalItem(
-      'Poulet roti',
-      'assets/images/poulet.jpg', // Chemin d'image fictif
-      9.00,
-      6.99, // Prix en Dinar Tunisien (DT)
-    ),
-    PromotionalItem(
-      'Salade Méchouia',
-      'assets/images/mechouia.jpg', // Chemin d'image fictif
-      5.50,
-      4.25, // Prix en Dinar Tunisien (DT)
-    ),
-    PromotionalItem(
-      'Sandwich Kafteji',
-      'assets/images/kafteji.jpg', // Chemin d'image fictif
-      8.00,
-      6.50, // Prix en Dinar Tunisien (DT)
-    ),
+  final List<PromotionalItem> _promotionalItems = const [
+    PromotionalItem('Poulet roti', 'assets/images/poulet.jpg', 9.00, 6.99),
+    PromotionalItem('Salade Méchouia', 'assets/images/mechouia.jpg', 5.50, 4.25),
+    PromotionalItem('Sandwich Kafteji', 'assets/images/kafteji.jpg', 8.00, 6.50),
   ];
 
-
-  // Données fictives pour les plats populaires
-  final List<FoodItem> _popularItems = [
-    FoodItem(
-      'Couscous Royal', // Changé pour une cuisine locale
-      'assets/images/couscous.jpg', // Chemin d'image fictif
-      12.99, // Prix en Dinar Tunisien (DT)
-      4.8,
-      'Semoule fine, agneau, légumes de saison',
-    ),
-    FoodItem(
-      'Pizza Royale',
-      'assets/images/pizza.jpg',
-      16.50, // Prix en Dinar Tunisien (DT)
-      4.9,
-      'Sauce tomate, mozzarella, jambon, champignons',
-    ),
-    FoodItem(
-      'Sushi Mix',
-      'assets/images/sushi.jpg',
-      18.75, // Prix en Dinar Tunisien (DT)
-      4.7,
-      'Assortiment de 12 pièces de sushi frais',
-    ),
-    FoodItem(
-      'Pâtes Carbonara',
-      'assets/images/pasta.jpg',
-      14.25, // Prix en Dinar Tunisien (DT)
-      4.6,
-      'Pâtes fraîches avec sauce carbonara crémeuse',
-    ),
+  final List<FoodItem> _popularItems = const [
+    FoodItem('Couscous Royal', 'assets/images/couscous.jpg', 12.99, 4.8, 'Semoule fine, agneau, légumes de saison'),
+    FoodItem('Pizza Royale', 'assets/images/pizza.jpg', 16.50, 4.9, 'Sauce tomate, mozzarella, jambon, champignons'),
+    FoodItem('Sushi Mix', 'assets/images/sushi.jpg', 18.75, 4.7, 'Assortiment de 12 pièces de sushi frais'),
+    FoodItem('Pâtes Carbonara', 'assets/images/pasta.jpg', 14.25, 4.6, 'Pâtes fraîches avec sauce carbonara crémeuse'),
   ];
 
-  // Données fictives pour les recommandations
-  final List<FoodItem> _recommendedItems = [
-    FoodItem(
-      'Salade César',
-      'assets/images/salad.jpg',
-      10.99, // Prix en Dinar Tunisien (DT)
-      4.5,
-      'Laitue romaine, croûtons, parmesan, sauce césar',
-    ),
-    FoodItem(
-      'Tiramisu',
-      'assets/images/tiramisu.jpg',
-      8.50, // Prix en Dinar Tunisien (DT)
-      4.8,
-      'Dessert italien au café et mascarpone',
-    ),
+  final List<FoodItem> _recommendedItems = const [
+    FoodItem('Salade César', 'assets/images/salad.jpg', 10.99, 4.5, 'Laitue romaine, croûtons, parmesan, sauce césar'),
+    FoodItem('Tiramisu', 'assets/images/tiramisu.jpg', 8.50, 4.8, 'Dessert italien au café et mascarpone'),
   ];
 
-  @override
-  void initState() {
-    super.initState();
+  // --- Fonctions de Gestion d'État et de Navigation ---
+
+  void _addToCart(FoodItem item) {
+    setState(() {
+      _panier.add(item);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${item.name} ajouté au panier !'),
+        duration: const Duration(seconds: 1),
+        backgroundColor: Colors.teal,
+      ),
+    );
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
-  // Fonction pour gérer la navigation du BottomNavigationBar
   void _onItemTapped(int index) {
     setState(() {
       _currentIndex = index;
     });
-
-    if (index == 1) { // 1 correspond à l'index de l'onglet 'Menu'
-      _navigateToMenu();
-    }
-    // Pour les autres onglets, on reste sur la page Home pour l'instant
-    // ou on pourrait implémenter d'autres navigations
   }
 
+  void _navigateToMenu() {
+    _onItemTapped(1);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _clientName = widget.initialClientName;
+    _tableNumber = widget.initialTableNumber;
+    _notes = widget.initialNotes;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final List<Widget> pages = [
+      _buildHomeContent(),
+      MenuPage(onAddToOrder: _addToCart),
+      if (_clientName != null && _tableNumber != null && _notes != null)
+        CommandesPage(
+          panier: _panier,
+          clientName: _clientName!,
+          tableNumber: _tableNumber!,
+          notes: _notes!,
+        )
+      else
+        Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text("Veuillez d'abord saisir vos informations."),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => OrderInfoPage(panier: _panier),
+                    ),
+                  );
+                },
+                child: Text("Saisir les informations"),
+              ),
+            ],
+          ),
+        ),
+    ];
+
     return Scaffold(
       backgroundColor: _backgroundColor,
       appBar: _buildAppBar(),
-      body: _buildBody(),
+      body: pages[_currentIndex],
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
@@ -157,58 +158,122 @@ class _HomePageState extends State<HomePage> {
               fontSize: 20,
             ),
           ),
-          Text(
-            'Livraison rapide • 20-30 min',
-            style: TextStyle(
-              color: _textSecondary,
-              fontSize: 12,
-            ),
-          ),
         ],
       ),
       backgroundColor: _backgroundColor,
       elevation: 0,
-      actions: [
-        IconButton(
-          icon: Badge(
-            backgroundColor: _accentColor,
-            label: const Text('3', style: TextStyle(color: Colors.white, fontSize: 10)),
-            child: const Icon(Icons.shopping_cart_outlined),
+    );
+  }
+
+  BottomNavigationBar _buildBottomNavigationBar() {
+    return BottomNavigationBar(
+      currentIndex: _currentIndex,
+      onTap: _onItemTapped,
+      type: BottomNavigationBarType.fixed,
+      selectedItemColor: _accentColor,
+      unselectedItemColor: _textSecondary,
+      selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
+      unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
+      backgroundColor: _backgroundColor,
+      elevation: 8,
+      items: [
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.home_outlined),
+          activeIcon: Icon(Icons.home),
+          label: 'Accueil',
+        ),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.restaurant_menu_outlined),
+          activeIcon: Icon(Icons.restaurant_menu),
+          label: 'Menu',
+        ),
+        BottomNavigationBarItem(
+          icon: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Icon(Icons.receipt_long_outlined),
+              if (_panier.isNotEmpty)
+                Positioned(
+                  top: -5,
+                  right: -5,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: _accentColor,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: _backgroundColor, width: 1),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      _panier.length.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
           ),
-          onPressed: () => _navigateToCart(),
-          color: _textPrimary,
+          activeIcon: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Icon(Icons.receipt_long),
+              if (_panier.isNotEmpty)
+                Positioned(
+                  top: -5,
+                  right: -5,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: _accentColor,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: _backgroundColor, width: 1),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 18,
+                      minHeight: 18,
+                    ),
+                    child: Text(
+                      _panier.length.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          label: 'Commande',
         ),
       ],
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildHomeContent() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Barre de recherche
           _buildSearchBar(),
           const SizedBox(height: 24),
-
-          // Section Cuisines et Catégories
           _buildCategoriesSection(),
           const SizedBox(height: 32),
-
-          // NOUVELLE SECTION : Plat du Jour
           _buildDailySpecialSection(),
           const SizedBox(height: 32),
-
-          // NOUVELLE SECTION : Plats en Promotion
           _buildPromotionalSection(),
           const SizedBox(height: 32),
-
-          // Section Plats Populaires - LISTE HORIZONTALE
           _buildPopularHorizontalListSection(),
           const SizedBox(height: 32),
-
-          // Section Recommandations
           _buildRecommendedSection(),
           const SizedBox(height: 16),
         ],
@@ -231,9 +296,6 @@ class _HomePageState extends State<HomePage> {
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
-        onChanged: (value) {
-          // Implémenter la recherche
-        },
       ),
     );
   }
@@ -243,7 +305,7 @@ class _HomePageState extends State<HomePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Cuisines & Catégories', // Texte mis à jour
+          'Cuisines & Catégories',
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.bold,
@@ -267,7 +329,9 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildCategoryItem(Category category) {
     return GestureDetector(
-      onTap: () => _navigateToCategory(category.name),
+      onTap: () {
+        // Logique de navigation/filtrage si nécessaire
+      },
       child: Container(
         width: 80,
         margin: const EdgeInsets.only(right: 12),
@@ -277,7 +341,7 @@ class _HomePageState extends State<HomePage> {
               width: 60,
               height: 60,
               decoration: BoxDecoration(
-                color: category.color,
+                color: (category.color as MaterialColor).shade100,
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Center(
@@ -304,7 +368,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // NOUVELLE SECTION : Plat du Jour
   Widget _buildDailySpecialSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -366,7 +429,7 @@ class _HomePageState extends State<HomePage> {
                     Row(
                       children: [
                         Text(
-                          '${_dailySpecialItem.discountedPrice} DT',
+                          '${_dailySpecialItem.discountedPrice.toStringAsFixed(2)} DT',
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -375,7 +438,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '${_dailySpecialItem.originalPrice} DT',
+                          '${_dailySpecialItem.originalPrice.toStringAsFixed(2)} DT',
                           style: const TextStyle(
                             color: Colors.white54,
                             decoration: TextDecoration.lineThrough,
@@ -414,7 +477,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // NOUVELLE SECTION : Plats en Promotion
   Widget _buildPromotionalSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -429,7 +491,7 @@ class _HomePageState extends State<HomePage> {
         ),
         const SizedBox(height: 16),
         SizedBox(
-          height: 140, // Hauteur ajustée pour la liste horizontale
+          height: 140,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: _promotionalItems.length,
@@ -487,7 +549,7 @@ class _HomePageState extends State<HomePage> {
                 Row(
                   children: [
                     Text(
-                      '${item.originalPrice} DT',
+                      '${item.originalPrice.toStringAsFixed(2)} DT',
                       style: TextStyle(
                         color: _textSecondary,
                         decoration: TextDecoration.lineThrough,
@@ -496,7 +558,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '${item.discountedPrice} DT',
+                      '${item.discountedPrice.toStringAsFixed(2)} DT',
                       style: TextStyle(
                         color: _accentColor,
                         fontWeight: FontWeight.bold,
@@ -529,7 +591,7 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             TextButton(
-              onPressed: () => _navigateToMenu(), // Navigue vers la page Menu
+              onPressed: _navigateToMenu,
               child: Text(
                 'Voir tout',
                 style: TextStyle(
@@ -558,7 +620,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildPopularListItem(FoodItem item) {
     return Container(
-      width: 200, // Largeur fixe pour la carte dans la liste horizontale
+      width: 200,
       margin: const EdgeInsets.only(right: 16),
       decoration: BoxDecoration(
         color: _backgroundColor,
@@ -647,7 +709,7 @@ class _HomePageState extends State<HomePage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '${item.price} DT',
+                      '${item.price.toStringAsFixed(2)} DT',
                       style: TextStyle(
                         color: _accentColor,
                         fontWeight: FontWeight.bold,
@@ -659,8 +721,8 @@ class _HomePageState extends State<HomePage> {
                     GestureDetector(
                       onTap: () => _addToCart(item),
                       child: Container(
-                        height: 36, // Taille ajustée
-                        width: 36,  // Taille ajustée
+                        height: 36,
+                        width: 36,
                         decoration: BoxDecoration(
                           color: _accentColor,
                           borderRadius: BorderRadius.circular(10),
@@ -689,7 +751,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-
   Widget _buildRecommendedSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -706,7 +767,7 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             TextButton(
-              onPressed: () => _navigateToMenu(), // Navigue vers la page Menu
+              onPressed: _navigateToMenu,
               child: Text(
                 'Voir tout',
                 style: TextStyle(
@@ -783,7 +844,7 @@ class _HomePageState extends State<HomePage> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        '${item.price} DT',
+                        '${item.price.toStringAsFixed(2)} DT',
                         style: TextStyle(
                           color: _accentColor,
                           fontWeight: FontWeight.bold,
@@ -814,8 +875,8 @@ class _HomePageState extends State<HomePage> {
             child: GestureDetector(
               onTap: () => _addToCart(item),
               child: Container(
-                height: 40, // Taille ajustée
-                width: 40,  // Taille ajustée
+                height: 40,
+                width: 40,
                 decoration: BoxDecoration(
                   color: _accentColor,
                   borderRadius: BorderRadius.circular(10),
@@ -839,110 +900,24 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-
-  BottomNavigationBar _buildBottomNavigationBar() {
-    return BottomNavigationBar(
-      currentIndex: _currentIndex,
-      onTap: _onItemTapped, // Utilise la nouvelle fonction
-      type: BottomNavigationBarType.fixed,
-      selectedItemColor: _accentColor,
-      unselectedItemColor: _textSecondary,
-      selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
-      unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
-      backgroundColor: _backgroundColor,
-      elevation: 8,
-      items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home_outlined),
-          activeIcon: Icon(Icons.home),
-          label: 'Accueil',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.restaurant_menu_outlined),
-          activeIcon: Icon(Icons.restaurant_menu),
-          label: 'Menu',
-        ),
-        BottomNavigationBarItem(
-          icon: Badge(
-            label: Text('3', style: TextStyle(color: Colors.white, fontSize: 10)),
-            child: Icon(Icons.receipt_long_outlined),
-          ),
-          activeIcon: Badge(
-            label: Text('3', style: TextStyle(color: Colors.white, fontSize: 10)),
-            child: Icon(Icons.receipt_long),
-          ),
-          label: 'Commande',
-        ),
-      ],
-    );
-  }
-
-  // Méthodes de navigation
-  void _navigateToCart() {
-    // Navigator.push(...)
-    print('Navigation vers le panier');
-  }
-
-  void _navigateToProfile() {
-    // Navigator.push(...)
-    print('Navigation vers le profil');
-  }
-
-  void _navigateToCategory(String category) {
-    // Navigator.push(...)
-    print('Navigation vers la catégorie: $category');
-  }
-
-  void _navigateToMenu() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const MenuPage()),
-    );
-
-  }
-
-  void _addToCart(FoodItem item) {
-    // Logique d'ajout au panier
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${item.name} ajouté au panier'),
-        backgroundColor: _accentColor,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
 }
 
-// Classes modèles
+// Modèles simplifiés pour les besoins de la HomePage
 class Category {
   final String name;
   final String emoji;
   final Color color;
-
-  Category(this.name, this.emoji, this.color);
-}
-
-class FoodItem {
-  final String name;
   final String imagePath;
-  final double price;
-  final double rating;
-  final String description;
-
-  FoodItem(this.name, this.imagePath, this.price, this.rating, this.description);
+  const Category(this.name, this.emoji, this.color, this.imagePath);
 }
 
-// NOUVELLES CLASSES POUR LES SECTIONS SPÉCIALES
 class DailySpecial {
   final String name;
   final String imagePath;
   final double originalPrice;
   final double discountedPrice;
   final String description;
-
-  DailySpecial({
+  const DailySpecial({
     required this.name,
     required this.imagePath,
     required this.originalPrice,
@@ -956,6 +931,5 @@ class PromotionalItem {
   final String imagePath;
   final double originalPrice;
   final double discountedPrice;
-
-  PromotionalItem(this.name, this.imagePath, this.originalPrice, this.discountedPrice);
+  const PromotionalItem(this.name, this.imagePath, this.originalPrice, this.discountedPrice);
 }

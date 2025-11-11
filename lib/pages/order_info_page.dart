@@ -1,8 +1,9 @@
+// lib/pages/order_info_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/food_item.dart';
+import 'home_page.dart'; // Importation de HomePage
 
-// Constantes de couleurs cohérentes avec WelcomePage
 const Color primaryBackground = Colors.white;
 const Color accentOrange = Color(0xFFFF6B35);
 const Color buttonGradientStart = Color(0xFFFF6B35);
@@ -12,7 +13,8 @@ const Color textPrimary = Color(0xFF1E293B);
 const Color textSecondary = Color(0xFF64748B);
 
 class OrderInfoPage extends StatefulWidget {
-  const OrderInfoPage({super.key});
+  final List<FoodItem> panier; // ✅ Nouveau paramètre pour le panier
+  const OrderInfoPage({super.key, required this.panier}); // ✅ Requis
 
   @override
   State<OrderInfoPage> createState() => _OrderInfoPageState();
@@ -24,46 +26,36 @@ class _OrderInfoPageState extends State<OrderInfoPage>
   final _nameController = TextEditingController();
   final _tableController = TextEditingController();
   final _notesController = TextEditingController();
-
   late AnimationController _controller;
   late Animation<double> _opacityAnimation;
   late Animation<double> _slideAnimation;
   late Animation<double> _scaleAnimation;
-
   final FocusNode _nameFocusNode = FocusNode();
-
   bool _isLoading = false;
   String? _errorMessage;
-
-  final _supabaseClient = Supabase.instance.client;
 
   @override
   void initState() {
     super.initState();
-
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     );
-
     _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
     );
-
     _slideAnimation = Tween<double>(begin: 0.3, end: 0.0).animate(
       CurvedAnimation(
         parent: _controller,
         curve: const Interval(0.0, 0.8, curve: Curves.easeOutCubic),
       ),
     );
-
     _scaleAnimation = Tween<double>(begin: 0.9, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
         curve: const Interval(0.2, 1.0, curve: Curves.elasticOut),
       ),
     );
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _nameFocusNode.requestFocus();
       _controller.forward();
@@ -84,69 +76,54 @@ class _OrderInfoPageState extends State<OrderInfoPage>
     if (!_formKey.currentState!.validate()) {
       return;
     }
-
     HapticFeedback.lightImpact();
-
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-
     try {
-      final response = await _supabaseClient.from('orders').insert({
-        'client_name': _nameController.text.trim(),
-        'table_number': int.parse(_tableController.text),
-        'notes': _notesController.text.trim().isEmpty
-            ? null
-            : _notesController.text.trim(),
-      }).select();
+      // ✅ Récupérer les valeurs du formulaire
+      final String clientName = _nameController.text.trim();
+      final int tableNumber = int.parse(_tableController.text);
+      final String? notes = _notesController.text.trim().isEmpty ? null : _notesController.text.trim();
 
-      if (response != null && response.isNotEmpty) {
-        if (mounted) {
-          // 1. Afficher la notification de succès (SnackBar)
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Envoyée avec succès!'), // Message légèrement modifié
-              backgroundColor: Colors.green,
-              duration: const Duration(milliseconds: 1500), // Raccourci pour une navigation rapide
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
-              ),
+      // ✅ Afficher la notification de succès
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Informations envoyées!'),
+            backgroundColor: Colors.green,
+            duration: const Duration(milliseconds: 1500),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
             ),
-          );
-
-          // 2. Réinitialiser les champs du formulaire après succès
-          _nameController.clear();
-          _tableController.clear();
-          _notesController.clear();
-          _formKey.currentState?.reset();
-
-          // 3. Naviguer vers la page d'accueil après un petit délai
-          await Future.delayed(const Duration(milliseconds: 1500));
-
-          if (mounted) {
-            // Utilisation de pushReplacementNamed pour empêcher de revenir à cette page
-            // La route nommée est '/pages/home_page.dart'
-            Navigator.of(context).pushReplacementNamed('/pages/home_page.dart');
-          }
-        }
-      } else {
-        throw Exception('L\'insertion a échoué et n\'a pas retourné de données.');
+          ),
+        );
       }
 
-    } on PostgrestException catch (error) {
-      print('Postgrest Error: ${error.message} (Code: ${error.code})');
-      String displayMessage = 'Erreur de la base de données (Code: ${error.code}).';
+      // ✅ Réinitialiser les champs du formulaire après succès
+      _nameController.clear();
+      _tableController.clear();
+      _notesController.clear();
+      _formKey.currentState?.reset();
 
-      if (error.code == '42501') {
-        displayMessage = "Erreur de permission. Vérifiez la configuration Supabase.";
-      } else if (error.message.contains('RLS')) {
-        displayMessage = "Erreur de sécurité de la base de données.";
+      // ✅ Naviguer vers HomePage avec les données client
+      await Future.delayed(const Duration(milliseconds: 1500));
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => HomePage(
+              initialClientName: clientName,
+              initialTableNumber: tableNumber,
+              initialNotes: notes ?? "",
+            ),
+          ),
+        );
       }
-
+    } on FormatException {
       setState(() {
-        _errorMessage = displayMessage;
+        _errorMessage = 'Numéro de table invalide.';
       });
     } catch (e) {
       print('General Error: $e');
@@ -200,7 +177,6 @@ class _OrderInfoPageState extends State<OrderInfoPage>
                         // En-tête
                         _buildHeader(),
                         const SizedBox(height: 32),
-
                         // Formulaire
                         Form(
                           key: _formKey,
@@ -219,7 +195,6 @@ class _OrderInfoPageState extends State<OrderInfoPage>
                                 },
                               ),
                               const SizedBox(height: 20),
-
                               _buildTextField(
                                 controller: _tableController,
                                 labelText: 'Numéro de Table',
@@ -236,7 +211,6 @@ class _OrderInfoPageState extends State<OrderInfoPage>
                                 },
                               ),
                               const SizedBox(height: 20),
-
                               _buildTextField(
                                 controller: _notesController,
                                 labelText: 'Notes Spéciales',
@@ -248,13 +222,10 @@ class _OrderInfoPageState extends State<OrderInfoPage>
                           ),
                         ),
                         const SizedBox(height: 32),
-
                         // Message d'erreur
                         if (_errorMessage != null)
                           _buildErrorCard(),
-
                         const SizedBox(height: 24),
-
                         // Bouton de soumission, enveloppé dans Center
                         Center(
                           child: _buildSubmitButton(),
@@ -276,7 +247,7 @@ class _OrderInfoPageState extends State<OrderInfoPage>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Préparez votre\ncommande',
+          'Préparez votre commande',
           style: TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.w800,
