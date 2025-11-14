@@ -1,6 +1,6 @@
+// routes/commandes.ts
 import { Hono } from 'hono';
 import { supabaseAdmin } from '../index';
-
 
 const commandesRoute = new Hono();
 
@@ -100,7 +100,31 @@ commandesRoute.post('/', async (c) => {
             return c.json({ message: `Erreur lors de l'enregistrement des articles : ${itemsError.message}. Vérifiez les noms de colonnes.` });
         }
 
-        // --- 4. Succès ---
+        // --- 4. MISE À JOUR DU STATUT DE LA TABLE (si applicable) ---
+        if (table_number !== undefined && table_number !== null) {
+            console.log(`🔄 Tentative de mise à jour du statut de la table ${table_number}...`);
+            const { error: tableUpdateError } = await supabaseAdmin
+                .from('tables') // Remplacez par le nom de votre table de tables
+                .update({
+                    status: 'occupied', // ou 'Occupée' selon votre schéma, converti en minuscule plus bas
+                    order_summary: `${items.length} plat(s) pour ${client_name || 'Client sur place'}`, // Exemple de résumé
+                    time_occupied: new Date().toISOString(), // Enregistrer l'heure d'occupation
+                })
+                .eq('id', table_number); // Supposons que 'table_number' corresponde à 'id' dans la table 'tables'
+
+            if (tableUpdateError) {
+                console.error('❌ Erreur lors de la mise à jour du statut de la table:', tableUpdateError.message);
+                // ATTENTION: La commande a été créée, mais la table n'a pas été mise à jour.
+                // Vous pourriez vouloir annuler la commande ou gérer cette erreur différemment.
+                // Pour l'instant, on loggue l'erreur mais on continue.
+            } else {
+                 console.log(`✅ Statut de la table ${table_number} mis à jour.`);
+            }
+        } else {
+            console.log('ℹ️ Aucun numéro de table fourni, mise à jour du statut ignorée.');
+        }
+
+        // --- 5. Succès ---
         console.log('✅ Commande complète enregistrée !');
         return c.json({
             message: 'Commande enregistrée avec succès',

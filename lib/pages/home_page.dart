@@ -1,5 +1,7 @@
 // lib/pages/home_page.dart
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http; // Import pour http
+import 'dart:convert'; // Import pour jsonDecode
 import 'menu_page.dart';
 import 'commandes_page.dart';
 import '../models/food_item.dart';
@@ -36,13 +38,13 @@ class _HomePageState extends State<HomePage> {
   final Color _textPrimary = const Color(0xFF1E293B);
   final Color _textSecondary = const Color(0xFF64748B);
 
+  // --- ÉTAT POUR LES CATÉGORIES DYNAMIQUES ---
+  List<Category> _dynamicCategories = [];
+  bool _categoriesLoading = true;
+  String? _categoriesError;
+
   // --- Données fictives (maintenues ici pour la démo) ---
-  final List<Category> _categories = const [
-    Category('Tunisienne', '🇹🇳', Colors.red, 'assets/images/placeholder.jpg'),
-    Category('Américaine', '🍔', Colors.blue, 'assets/images/placeholder.jpg'),
-    Category('Italienne', '🍕', Colors.green, 'assets/images/placeholder.jpg'),
-    Category('Desserts', '🍰', Colors.orange, 'assets/images/placeholder.jpg'),
-  ];
+  // Suppression de la liste statique _categories
 
   final DailySpecial _dailySpecialItem = const DailySpecial(
     name: 'Lablabi Spécial',
@@ -69,6 +71,99 @@ class _HomePageState extends State<HomePage> {
     FoodItem('Salade César', 'assets/images/salad.jpg', 10.99, 4.5, 'Laitue romaine, croûtons, parmesan, sauce césar'),
     FoodItem('Tiramisu', 'assets/images/tiramisu.jpg', 8.50, 4.8, 'Dessert italien au café et mascarpone'),
   ];
+
+  // --- NOUVELLE FONCTION : Charger les catégories depuis l'API ---
+  Future<void> _loadDynamicCategories() async {
+    if (!mounted) return; // Vérifier si le widget est encore monté
+    setState(() {
+      _categoriesLoading = true;
+      _categoriesError = null; // Réinitialiser l'erreur
+    });
+
+    try {
+      final response = await http.get(
+        Uri.parse('http://192.168.56.1:8082/categories'), // URL de votre API
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        // Convertir la réponse JSON en liste de Category
+        // On suppose que la réponse est une liste d'objets avec un champ 'name'
+        final List<Category> loadedCategories = data
+            .map((json) => Category(
+          json['name'] as String,
+          _getEmojiForCategory(json['name'] as String), // Associer un emoji
+          _getColorForCategory(json['name'] as String), // Associer une couleur
+          'assets/images/placeholder.jpg', // Image par défaut
+        ))
+            .toList();
+
+        if (mounted) { // Vérifier à nouveau avant setState
+          setState(() {
+            _dynamicCategories = loadedCategories;
+            _categoriesLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _categoriesError = 'Erreur ${response.statusCode} lors du chargement des catégories';
+            _categoriesLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _categoriesError = 'Erreur réseau: $e';
+          _categoriesLoading = false;
+        });
+      }
+    }
+  }
+
+  // --- FONCTIONS AIDE POUR LES CATÉGORIES DYNAMIQUES ---
+  // Vous pouvez personnaliser ces fonctions pour associer des emojis et couleurs spécifiques
+  String _getEmojiForCategory(String name) {
+    // Exemple simple basé sur le nom
+    switch (name.toLowerCase()) {
+      case 'tunisienne':
+        return '🇹🇳';
+      case 'américaine':
+        return '🍔';
+      case 'italienne':
+        return '🍕';
+      case 'desserts':
+        return '🍰';
+      case 'boissons':
+        return '🥤';
+      case 'plats principaux':
+        return '🍽️';
+      default:
+        return '🍽️'; // Emoji générique
+    }
+  }
+
+  Color _getColorForCategory(String name) {
+    // Exemple simple basé sur le nom
+    switch (name.toLowerCase()) {
+      case 'tunisienne':
+        return Colors.red;
+      case 'américaine':
+        return Colors.blue;
+      case 'italienne':
+        return Colors.green;
+      case 'desserts':
+        return Colors.orange;
+      case 'boissons':
+        return Colors.blue.shade200;
+      case 'plats principaux':
+        return Colors.purple;
+      default:
+        return Colors.grey.shade300; // Couleur générique
+    }
+  }
+
 
   // --- Fonctions de Gestion d'État et de Navigation ---
 
@@ -102,6 +197,10 @@ class _HomePageState extends State<HomePage> {
     _clientName = widget.initialClientName;
     _tableNumber = widget.initialTableNumber;
     _notes = widget.initialNotes;
+    // Charger les catégories dynamiques après l'initialisation
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadDynamicCategories();
+    });
   }
 
   @override
@@ -266,7 +365,7 @@ class _HomePageState extends State<HomePage> {
         children: [
           _buildSearchBar(),
           const SizedBox(height: 24),
-          _buildCategoriesSection(),
+          _buildCategoriesSection(), // <--- Appelle la section mise à jour
           const SizedBox(height: 32),
           _buildDailySpecialSection(),
           const SizedBox(height: 32),
@@ -300,6 +399,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // --- SECTION CATÉGORIES MISE À JOUR ---
   Widget _buildCategoriesSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,16 +413,23 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         const SizedBox(height: 16),
-        SizedBox(
-          height: 100,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: _categories.length,
-            itemBuilder: (context, index) {
-              return _buildCategoryItem(_categories[index]);
-            },
-          ),
-        ),
+        if (_categoriesLoading)
+          const Center(child: CircularProgressIndicator()) // Afficher un indicateur de chargement
+        else if (_categoriesError != null)
+          Center(child: Text('Erreur: $_categoriesError')) // Afficher l'erreur
+        else if (_dynamicCategories.isEmpty)
+            const Center(child: Text('Aucune catégorie disponible.')) // Afficher si vide
+          else
+            SizedBox(
+              height: 100,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _dynamicCategories.length,
+                itemBuilder: (context, index) {
+                  return _buildCategoryItem(_dynamicCategories[index]);
+                },
+              ),
+            ),
       ],
     );
   }
@@ -331,6 +438,8 @@ class _HomePageState extends State<HomePage> {
     return GestureDetector(
       onTap: () {
         // Logique de navigation/filtrage si nécessaire
+        // Par exemple, naviguer vers MenuPage et filtrer par catégorie
+        // Navigator.push(context, MaterialPageRoute(builder: (context) => MenuPage(categoryFilter: category.name)));
       },
       child: Container(
         width: 80,
@@ -341,19 +450,19 @@ class _HomePageState extends State<HomePage> {
               width: 60,
               height: 60,
               decoration: BoxDecoration(
-                color: (category.color as MaterialColor).shade100,
+                color: category.color.withOpacity(0.2), // Utiliser la couleur dynamique avec transparence
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Center(
                 child: Text(
-                  category.emoji,
+                  category.emoji, // Utiliser l'emoji dynamique
                   style: const TextStyle(fontSize: 24),
                 ),
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              category.name,
+              category.name, // Utiliser le nom dynamique
               style: TextStyle(
                 color: _textPrimary,
                 fontWeight: FontWeight.w500,
@@ -367,6 +476,8 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+
+  // ... (le reste des fonctions _buildDailySpecialSection, _buildPromotionalSection, etc., reste inchangé) ...
 
   Widget _buildDailySpecialSection() {
     return Column(
@@ -903,6 +1014,7 @@ class _HomePageState extends State<HomePage> {
 }
 
 // Modèles simplifiés pour les besoins de la HomePage
+// La classe Category est maintenant utilisée pour les données dynamiques
 class Category {
   final String name;
   final String emoji;

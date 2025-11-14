@@ -442,7 +442,7 @@ class _CommandesPageState extends State<CommandesPage> {
 
     setState(() => _isSubmitting = true);
 
-    final String backendUrl = dotenv.env['BACKEND_URL'] ?? 'http://192.168.43.8:8082/commandes';
+    final String backendUrl = dotenv.env['BACKEND_URL'] ?? 'http://192.168.56.1:8082/commandes';
     final Uri url = Uri.parse(backendUrl);
 
     final body = {

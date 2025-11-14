@@ -19,6 +19,19 @@ class FoodItem {
         this.id = '',
         this.category = 'Autre',
       });
+
+  // --- AJOUTEZ CETTE MÉTHODE ---
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'category': category,
+      'price': price,
+      'description': description,
+      'image_path': imagePath, // ou 'image_url', selon votre base de données
+    };
+  }
+
   // 🔸 Factory constructor pour Supabase (recommandé)
   // Factory pour Supabase
   factory FoodItem.fromJson(Map<String, dynamic> json) {

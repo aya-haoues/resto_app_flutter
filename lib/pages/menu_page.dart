@@ -15,7 +15,9 @@ class MenuPage extends StatelessWidget {
   const MenuPage({Key? key, required this.onAddToOrder}) : super(key: key);
 
   // 🔹 URL de l'API Hono (même que le responsable)
-  final String _baseUrl = 'http://192.168.43.8:8082/menu';
+  final String _baseUrl = 'http://192.168.56.1:8082/menu';
+  final String _categoriesUrl = 'http://192.168.56.1:8082/categories'; // <--- AJOUTER CETTE URL
+
 
   Future<List<FoodItem>> _fetchMenu() async {
     final response = await http.get(Uri.parse(_baseUrl));
@@ -28,8 +30,22 @@ class MenuPage extends StatelessWidget {
     }
   }
 
+  // --- NOUVELLE FONCTION : Charger les catégories ---
+  Future<List<String>> _fetchCategories() async { // <--- AJOUTÉ
+    final response = await http.get(Uri.parse(_categoriesUrl));
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      return data.map((json) => json['name'] as String).toList();
+    } else {
+      throw Exception('Échec du chargement des catégories');
+    }
+  }
+
+
+
   @override
   Widget build(BuildContext context) {
+    // FutureBuilder pour charger les plats
     return FutureBuilder<List<FoodItem>>(
       future: _fetchMenu(),
       builder: (context, snapshot) {
@@ -47,58 +63,116 @@ class MenuPage extends StatelessWidget {
         }
 
         final items = snapshot.data!;
-        // Groupe les plats par catégorie (Tunisienne, Italienne, etc.)
+
+        // Grouper les plats par catégorie
         final grouped = <String, List<FoodItem>>{};
         for (var item in items) {
           grouped.putIfAbsent(item.category, () => []).add(item);
         }
 
-        return DefaultTabController(
-          length: grouped.length,
-          child: Scaffold(
-            backgroundColor: _ivoryWhite,
-            appBar: AppBar(
-              backgroundColor: _ivoryWhite,
-              elevation: 0,
-              title: Text(
-                'Le Menu Complet',
-                style: const TextStyle(
-                  color: _primaryBlue,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 24,
+        // FutureBuilder imbriqué pour charger les catégories
+        return FutureBuilder<List<String>>(
+          future: _fetchCategories(),
+          builder: (context, categorySnapshot) {
+            if (categorySnapshot.connectionState == ConnectionState.waiting) {
+              // Afficher un indicateur de chargement si les catégories sont en attente
+              // et que les plats sont déjà chargés
+              // (ou vous pouvez attendre les deux ensemble si préféré)
+              return Scaffold(
+                backgroundColor: _ivoryWhite,
+                appBar: AppBar(
+                  backgroundColor: _ivoryWhite,
+                  elevation: 0,
+                  title: Text(
+                    'Le Menu Complet',
+                    style: const TextStyle(
+                      color: _primaryBlue,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
+                    ),
+                  ),
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: _primaryBlue),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+                body: const Center(child: CircularProgressIndicator()),
+              );
+            }
+            if (categorySnapshot.hasError) {
+              return Scaffold(
+                backgroundColor: _ivoryWhite,
+                appBar: AppBar(
+                  backgroundColor: _ivoryWhite,
+                  elevation: 0,
+                  title: Text(
+                    'Le Menu Complet',
+                    style: const TextStyle(
+                      color: _primaryBlue,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
+                    ),
+                  ),
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: _primaryBlue),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+                body: Center(child: Text('Erreur catégories: ${categorySnapshot.error}')),
+              );
+            }
+
+            // Vérifiez si le widget est encore monté avant d'utiliser les données
+            if (!context.mounted) return const SizedBox.shrink(); // ou une page vide si démonté
+
+            final categories = categorySnapshot.data!;
+
+            return DefaultTabController(
+              length: categories.length,
+              child: Scaffold(
+                backgroundColor: _ivoryWhite,
+                appBar: AppBar(
+                  backgroundColor: _ivoryWhite,
+                  elevation: 0,
+                  title: Text(
+                    'Le Menu Complet',
+                    style: const TextStyle(
+                      color: _primaryBlue,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
+                    ),
+                  ),
+
+                  bottom: TabBar(
+                    isScrollable: true,
+                    labelColor: _goldAccent,
+                    unselectedLabelColor: _textSecondary,
+                    indicatorColor: _goldAccent,
+                    labelStyle: const TextStyle(fontWeight: FontWeight.w600),
+                    tabs: categories.map((cat) => Tab(text: cat)).toList(),
+                  ),
+                ),
+                body: TabBarView(
+                  children: categories.map((categoryName) {
+                    return ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: grouped[categoryName]?.length ?? 0,
+                      itemBuilder: (context, index) => _buildFoodRow(
+                        grouped[categoryName]![index],
+                        context,
+                        onAddToOrder,
+                      ),
+                    );
+                  }).toList(),
                 ),
               ),
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back, color: _primaryBlue),
-                onPressed: () => Navigator.pop(context),
-              ),
-              bottom: TabBar(
-                isScrollable: true,
-                labelColor: _goldAccent,
-                unselectedLabelColor: _textSecondary,
-                indicatorColor: _goldAccent,
-                labelStyle: const TextStyle(fontWeight: FontWeight.w600),
-                tabs: grouped.keys.map((cat) => Tab(text: cat)).toList(),
-              ),
-            ),
-            body: TabBarView(
-              children: grouped.entries.map((entry) {
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: entry.value.length,
-                  itemBuilder: (context, index) => _buildFoodRow(
-                    entry.value[index],
-                    context,
-                    onAddToOrder,
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
+            );
+          },
         );
       },
     );
   }
+
 
   Widget _buildFoodRow(
       FoodItem item,

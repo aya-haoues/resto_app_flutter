@@ -6,6 +6,10 @@ import { cors } from "hono/cors";
 import { logger } from 'hono/logger';
 import { commandesRoute } from "./routes/commandes"; // ✅ Chemin correct ?
 import { menuRoute } from './routes/menu';
+import { categoriesRoute } from './routes/categories'; // Importez le nouveau routeur
+import { tablesRoute } from './routes/tables'; // Importez la nouvelle route
+import { ordersRoute } from './routes/orders';
+
 dotenv.config({ path: "./.env" });
 
 // 1. Initialisation Supabase (Globale)
@@ -54,11 +58,10 @@ app.get("/", (c) => c.text("🚀 Backend Resto connecté avec succès !"));
 
 // ✅ Routes principales
 app.route("/commandes", commandesRoute);
-
 app.route("/menu", menuRoute);
-
-// ⚠️ COMMENTEZ CETTE LIGNE - elle ne fonctionnera que si clientsRoute est importé
-// app.route("/clients", clientsRoute);
+app.route("/categories", categoriesRoute);
+app.route("/tables", tablesRoute);
+app.route('/orders', ordersRoute);
 
 // ✅ Démarrage du serveur
 const PORT = Number(process.env.PORT) || 8081;
