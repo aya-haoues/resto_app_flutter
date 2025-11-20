@@ -7,7 +7,7 @@ import '../models/food_item.dart';
 // ✅ OFFICIAL TAWA ORDER COLORS (from Compte rendu 1)
 const Color _primaryBlue = Color(0xFF0D3B66);    // Bleu Nuit
 const Color _goldAccent = Color(0xFFD4AF37);     // Or Vif
-const Color _ivoryWhite = Color(0xFFFFF0F0);     // Blanc Ivoire
+const Color _ivoryWhite = Color(0xFFF8FAFC);    // Blanc Ivoire
 const Color _textSecondary = Color(0xFF64748B);  // Gris secondaire
 
 class MenuPage extends StatelessWidget {

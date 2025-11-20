@@ -434,17 +434,15 @@ class _CommandesPageState extends State<CommandesPage> {
     );
   }
 
+  // ✅ KEEP ONLY THIS VERSION of _confirmOrder
   void _confirmOrder() async {
     if (_localPanier.isEmpty) {
       _showErrorDialog("Votre panier est vide.");
       return;
     }
-
     setState(() => _isSubmitting = true);
-
     final String backendUrl = dotenv.env['BACKEND_URL'] ?? 'http://192.168.56.1:8082/commandes';
     final Uri url = Uri.parse(backendUrl);
-
     final body = {
       "client_name": widget.clientName,
       "total_price": _total,
@@ -466,7 +464,8 @@ class _CommandesPageState extends State<CommandesPage> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        _showSuccessDialog(data['order_id']);
+        // ✅ Pass BOTH arguments
+        _showSuccessDialog(data['order_id'], data['status']);
       } else {
         final errorBody = jsonDecode(response.body);
         final msg = errorBody['message'] ?? 'Erreur inconnue du serveur';
@@ -479,7 +478,8 @@ class _CommandesPageState extends State<CommandesPage> {
     }
   }
 
-  void _showSuccessDialog(String? orderId) {
+  // ✅ KEEP ONLY THIS VERSION of _showSuccessDialog
+  void _showSuccessDialog(String? orderId, String? initialStatus) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -495,15 +495,16 @@ class _CommandesPageState extends State<CommandesPage> {
           content: Text(
             "Votre commande a été envoyée avec succès !\n\n"
                 "Numéro: ${orderId ?? 'N/A'}\n"
+                "Statut: ${initialStatus?.toUpperCase() ?? 'PENDING'}\n"
                 "Total: ${_total.toStringAsFixed(2)} DT",
           ),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
               },
-              child: Text("OK"),
+              child: Text("Retour à l'accueil"),
             ),
           ],
         );

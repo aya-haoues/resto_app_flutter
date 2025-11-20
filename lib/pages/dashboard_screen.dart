@@ -7,13 +7,17 @@ import 'dart:convert'; // Ajout de l'import pour jsonDecode
 import 'menu_management_screen.dart';
 import '../models/food_item.dart'; // Ajustez le chemin si nécessaire
 import '../models/table.dart'; // <--- IMPORTER LE BON FICHIER, ASSUME QUE LE NOM DE LA CLASSE EST CHANGÉ EN dedans
-
+import '../models/order.dart';
+// dashboard_screen.dart
+import '../models/commande.dart'; // Ajoutez cette ligne
+import 'package:collection/collection.dart';
+import 'dart:math' show min;
 // lib/pages/dashboard_screen.dart
 
 class DashboardColors {
   // ... vos autres constantes ...
   static const Color primaryText = Color(0xFF4A3F35);
-  static const Color background = Color(0xFFF9F9F9);
+  static const Color background = Color(0xFFFFFFFF);
   static const Color cardBackground = Colors.white;
   static const Color accentPink = Color(0xFFFF6B9D);
   static const Color accentCoral = Color(0xFFFF9E80);
@@ -41,6 +45,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<TableInfo> _filteredTables = [];
   bool _tablesLoading = true;
   String? _tablesError;
+
+  List<Commande> _orders = []; // CHANGÉ : Utilisez Commande au lieu de Order
+  bool _ordersLoading = true;
+  String? _ordersError;
 
   // Définir la plage de tables (1 à 20)
   static const int _minTableNumber = 1;
@@ -143,6 +151,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 // ... dans la fonction _showOrderDetails ...
 
+  // dashboard_screen.dart
   void _showOrderDetails(BuildContext context, TableInfo table) {
     Color statusColor;
     String statusText;
@@ -160,6 +169,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       default:
         statusColor = Colors.grey;
         statusText = table.status;
+    }
+
+    // Find the corresponding order for this table (if any)
+    Commande? associatedOrder;
+    if (table.status.toLowerCase() == 'occupied' || table.status.toLowerCase() == 'occupée') {
+      associatedOrder = _orders.firstWhereOrNull(
+            (order) => order.tableNumber == table.number,
+      );
     }
 
     showDialog(
@@ -198,7 +215,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
               ),
-              // --- AJOUTER L'AFFICHAGE DES NOTES ICI ---
+              // Show notes if available
               if (table.status.toLowerCase() == 'occupied' || table.status.toLowerCase() == 'occupée')
                 Padding(
                   padding: const EdgeInsets.only(top: 12.0),
@@ -221,8 +238,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           color: Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: SelectableText( // Utilisez SelectableText pour permettre la copie
-                          table.notes ?? 'Aucune note spéciale', // Affiche les notes ou un message par défaut
+                        child: SelectableText(
+                          table.notes ?? 'Aucune note spéciale',
                           style: const TextStyle(
                             fontFamily: 'Poppins',
                             fontSize: 14,
@@ -233,7 +250,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ),
                 ),
-              // --- FIN DE L'AJOUT ---
+              // Show elapsed time
               if (table.status.toLowerCase() == 'occupied' || table.status.toLowerCase() == 'occupée')
                 Padding(
                   padding: const EdgeInsets.only(top: 12.0),
@@ -253,36 +270,143 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
               const SizedBox(height: 16),
-              const Text(
-                'Détails de la commande :',
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
-                  color: DashboardColors.primaryText,
+              // Show order details if associated order exists
+              if (associatedOrder != null) ...[
+                const Text(
+                  'Détails de la commande :',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                    color: DashboardColors.primaryText,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                table.orderSummary ?? 'Aucune commande',
-                style: const TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 16,
-                  color: DashboardColors.primaryText,
+                const SizedBox(height: 8),
+                Text(
+                  'Client: ${associatedOrder.clientName}',
+                  style: const TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 16,
+                    color: DashboardColors.primaryText,
+                  ),
                 ),
-              ),
+                Text(
+                  'Total: ${associatedOrder.totalPrice.toStringAsFixed(2)} DT',
+                  style: const TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 16,
+                    color: DashboardColors.primaryText,
+                  ),
+                ),
+                Text(
+                  'Notes: ${associatedOrder.notes}',
+                  style: const TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 16,
+                    color: DashboardColors.primaryText,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Show current status with icon
+                Row(
+                  children: [
+                    Icon(
+                      associatedOrder.getStatusIcon(),
+                      color: associatedOrder.getStatusColor(),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Statut: ${associatedOrder.getStatusText()}',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 14,
+                        color: associatedOrder.getStatusColor(),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Show items
+                const Text(
+                  'Articles :',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                    color: DashboardColors.primaryText,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Afficher un message indiquant que les détails complets sont dans la commande
+                Text(
+                  'Voir la commande complète dans l’onglet "Commandes".',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 12,
+                    color: Colors.grey,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // ✅ FIX: Capture non-null order
+                (() {
+                  final nonNullOrder = associatedOrder;
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _updateOrderStatus(nonNullOrder!.id, 'in_progress'),
+                          icon: Icon(Icons.access_time, color: Colors.white),
+                          label: const Text('En Cours'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            elevation: 4,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _updateOrderStatus(nonNullOrder!.id, 'done'),
+                          icon: Icon(Icons.check_circle, color: Colors.white),
+                          label: const Text('Terminée'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            elevation: 4,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }()),
+              ] else ...[
+                const Text(
+                  'Aucune commande associée à cette table.',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 16,
+                    color: DashboardColors.primaryText,
+                  ),
+                ),
+              ],
               if (table.status.toLowerCase() == 'occupied' || table.status.toLowerCase() == 'occupée') ...[
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      _markTableAsAvailable(table.number); // <--- Appel à la fonction API avec 'table.number'
-                      Navigator.of(context).pop(); // Fermer la boîte de dialogue
+                      _markTableAsAvailable(table.number);
+                      Navigator.of(context).pop();
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           backgroundColor: DashboardColors.statusAvailable,
-                          content: Text('Table ${table.number} libérée avec succès !'), // <--- Afficher 'table.number'
+                          content: Text('Table ${table.number} libérée avec succès !'),
                         ),
                       );
                     },
@@ -323,17 +447,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       },
     );
   }
-
   //  TABLES LAYOUT VIEW
-  // --- MODIFIER _buildTablesLayoutView POUR UTILISER _filteredTables ---
+
+// dashboard_screen.dart
   Widget _buildTablesLayoutView(BuildContext context) {
     if (_tablesLoading) {
-      return const Center(child: CircularProgressIndicator()); // Afficher un indicateur de chargement
+      return const Center(child: CircularProgressIndicator());
     }
     if (_tablesError != null) {
-      return Center(child: Text('Erreur: $_tablesError')); // Afficher l'erreur
+      return Center(child: Text('Erreur: $_tablesError'));
     }
-
     return Column(
       children: [
         _buildStatusSummaryHeader(),
@@ -346,18 +469,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               mainAxisSpacing: 16,
               childAspectRatio: 0.95,
             ),
-            // CHANGEMENT : Utiliser la plage de numéros de table
             itemCount: _maxTableNumber - _minTableNumber + 1,
             itemBuilder: (context, index) {
-              // Calculer le numéro de table réel à partir de l'index
               final tableNumber = _minTableNumber + index;
-              // Récupérer les données de la table depuis la Map
-              final table = _tablesMap[tableNumber]!; // On sait qu'elle existe grâce à _loadTables
-
+              final table = _tablesMap[tableNumber]!;
               Color color;
               IconData icon;
               String statusText;
-
               final lowerCaseStatus = table.status.toLowerCase();
               if (lowerCaseStatus == 'available' || lowerCaseStatus == 'libre') {
                 color = DashboardColors.statusAvailable;
@@ -368,12 +486,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 icon = Icons.circle;
                 statusText = 'Occupée';
               } else {
-                // Gérer un statut inconnu ou non affiché (théoriquement impossible ici grâce à _loadTables)
                 color = Colors.grey;
                 icon = Icons.help_outline;
-                statusText = table.status; // Afficher le statut brut
+                statusText = table.status;
               }
-
               return InkWell(
                 onTap: () => _showOrderDetails(context, table),
                 borderRadius: BorderRadius.circular(16),
@@ -406,7 +522,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Table $tableNumber', // <--- Utiliser le numéro calculé
+                          'Table $tableNumber',
                           style: const TextStyle(
                             fontFamily: 'Poppins',
                             fontSize: 18,
@@ -417,7 +533,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          statusText, // <--- Utiliser le texte calculé
+                          statusText,
                           style: TextStyle(
                             fontFamily: 'Poppins',
                             fontSize: 14,
@@ -438,6 +554,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                             ),
                           ),
+                        // Afficher le résumé de la commande si disponible
+                        if (table.orderSummary?.isNotEmpty == true)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4.0),
+                            child: Text(
+                              table.orderSummary!,
+                              style: const TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 12,
+                                color: Colors.grey,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -449,7 +582,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ],
     );
   }
-
   // PLACEHOLDER WIDGET
   Widget _placeholderWidget(String title, IconData icon) {
     return Center(
@@ -601,15 +733,63 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  //  REAL-TIME ORDERS VIEW
+  // dashboard_screen.dart
   Widget _buildRealtimeOrdersView(BuildContext context) {
-    return ListView(
+    return ListView.builder(
       padding: const EdgeInsets.all(16.0),
-      children: [
-        _buildOrderTile('#0012', 'En Préparation', 'Table 1', '95 TND', DashboardColors.accentCoral, Icons.access_time_filled),
-        const SizedBox(height: 12),
-        _buildOrderTile('#0011', 'Prête', 'Table 4', '40 TND', DashboardColors.statusAvailable, Icons.check_circle_outline),
-      ],
+      itemCount: _orders.length,
+      itemBuilder: (context, index) {
+        final order = _orders[index]; // 👈 CHANGER ICI : Utilisez Commande
+        return Card(
+          color: Colors.white,
+          elevation: 4,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: order.getStatusColor().withOpacity(0.15), // 👈 CHANGER ICI
+                shape: BoxShape.circle,
+              ),
+              child: Icon(order.getStatusIcon(), color: order.getStatusColor(), size: 24), // 👈 CHANGER ICI
+            ),
+            title: Text(
+              'Commande #${order.id.substring(0, min(6, order.id.length))}', // 👈 CHANGER ICI
+              style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 16),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Statut: ${order.getStatusText()}', // 👈 CHANGER ICI
+                  style: TextStyle(color: order.getStatusColor(), fontWeight: FontWeight.w600, fontSize: 14), // 👈 CHANGER ICI
+                ),
+                Text('Table ${order.tableNumber}', style: const TextStyle(color: Colors.grey, fontSize: 12)), // 👈 CHANGER ICI
+              ],
+            ),
+            trailing: Text(
+              '${order.totalPrice.toStringAsFixed(2)} DT', // 👈 CHANGER ICI
+              style: const TextStyle(
+                fontFamily: 'Poppins',
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: DashboardColors.primaryText,
+              ),
+            ),
+            onTap: () {
+              final table = _tablesMap[order.tableNumber]; // 👈 CHANGER ICI
+              if (table != null) {
+                _showOrderDetails(context, table);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Table ${order.tableNumber} non trouvée')),
+                );
+              }
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -660,11 +840,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    // Charger les tables dynamiquement au démarrage
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadTables();
+      _loadOrders(); // Load orders when the screen initializes
     });
   }
+
 
   // FONCTION POUR CHARGER LES TABLES DEPUIS L'API
   // FONCTION POUR CHARGER LES DONNÉES DES TABLES DEPUIS L'API ET CRÉER UNE MAP COMPLÈTE
@@ -731,6 +912,100 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  // Function to load orders
+
+// dashboard_screen.dart
+  Future<void> _loadOrders() async {
+    if (!mounted) return;
+    setState(() {
+      _ordersLoading = true;
+      _ordersError = null;
+    });
+    try {
+      final response = await http.get(
+        Uri.parse('http://192.168.56.1:8082/commandes'), // 👈 CHANGER ICI : Utilisez /commandes_with_items
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        final loadedOrders = data.map((json) => Commande.fromJson(json)).toList();
+        if (mounted) {
+          setState(() {
+            _orders = loadedOrders;
+            _ordersLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _ordersError = 'Erreur ${response.statusCode} lors du chargement des commandes';
+            _ordersLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _ordersError = 'Erreur réseau: $e';
+          _ordersLoading = false;
+        });
+      }
+    }
+  }
+// dashboard_screen.dart
+  // dashboard_screen.dart
+  Future<void> _updateOrderStatus(String orderId, String newStatus) async {
+    try {
+      final response = await http.put(
+        Uri.parse('http://192.168.56.1:8082/commandes/$orderId/status'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'status': newStatus}),
+      );
+      if (response.statusCode == 200) {
+        // Refresh the orders list
+        await _loadOrders();
+        // Also refresh the tables list if needed
+        await _loadTables();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.green,
+            content: Text('Statut de la commande mis à jour !'),
+          ),
+        );
+
+        // SIMULATION DE NOTIFICATION AU CLIENT
+        // Trouver la commande mise à jour
+        final updatedOrder = _orders.firstWhere((order) => order.id == orderId);
+        if (newStatus == 'in_progress') {
+          // Notification "En cours"
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: Colors.blue,
+              content: Text('${updatedOrder.clientName}, votre commande est en cours de préparation !'),
+            ),
+          );
+        } else if (newStatus == 'done') {
+          // Notification "Terminée"
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: Colors.green,
+              content: Text('${updatedOrder.clientName}, votre commande est prête !'),
+            ),
+          );
+        }
+
+      } else {
+        final errorBody = jsonDecode(response.body);
+        final errorMsg = errorBody['error'] ?? 'Erreur inconnue';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $errorMsg'), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur réseau: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
   // FONCTION POUR MARQUER UNE TABLE COMME LIBRE VIA L'API
   Future<void> _markTableAsAvailable(int tableNumber) async { // Prend le numéro de la table
     try {
@@ -774,7 +1049,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // ... (le reste de vos fonctions existantes) ...
+
 
   @override
   Widget build(BuildContext context) {
@@ -838,3 +1113,4 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 }
+

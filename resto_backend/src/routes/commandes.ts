@@ -4,140 +4,213 @@ import { supabaseAdmin } from '../index';
 
 const commandesRoute = new Hono();
 
+// POST /commandes → Créer une nouvelle commande
 commandesRoute.post('/', async (c) => {
+  try {
+    console.log('📥 Requête POST reçue sur /commandes');
+    let body;
     try {
-        console.log('📥 Requête POST reçue sur /commandes');
-
-        let body;
-        try {
-            // Vérifiez le Content-Type
-            const contentType = c.req.header('Content-Type');
-            if (!contentType || !contentType.includes('application/json')) {
-                console.log('❌ Content-Type non JSON:', contentType);
-                c.status(400);
-                return c.json({ message: 'Content-Type doit être application/json' });
-            }
-
-            body = await c.req.json();
-            console.log('📦 Données reçues:', JSON.stringify(body, null, 2));
-        } catch (parseError: any) {
-            console.error('❌ Erreur de parsing JSON:', parseError.message);
-            c.status(400);
-            return c.json({ message: 'Erreur de parsing JSON: ' + parseError.message });
-        }
-
-        // On récupère les champs nécessaires pour l'insertion
-        const { client_name, total_price, items, table_number, notes } = body;
-
-        // Validation de base des données
-        if (!total_price || typeof total_price !== 'number' || !items || items.length === 0) {
-            console.log('❌ Validation échouée:', { total_price, items });
-            c.status(400); // Bad Request
-            return c.json({ message: 'Données de commande incomplètes ou mal formées.' });
-        }
-
-        // --- 1. Insertion dans la table 'orders' ---
-        // Cette table stocke les informations principales de la commande (client, table, etc.)
-        const { data: orderData, error: orderError } = await supabaseAdmin
-            .from('orders')
-            .insert({
-                client_name: client_name || 'Client sur place',
-                table_number: table_number,
-                notes: notes,
-            })
-            .select('id') // Récupère l'ID pour l'étape suivante
-            .single();
-
-        if (orderError) {
-            console.error('❌ Erreur Supabase (Table orders) :', orderError.message);
-            c.status(500);
-            return c.json({ message: `Erreur lors de l'insertion dans la table 'orders': ${orderError.message}` });
-        }
-
-        const orderId = orderData.id;
-        console.log('✅ Commande insérée dans la table "orders" avec ID :', orderId);
-
-        // --- 2. Insertion dans la table 'commandes' ---
-        // Cette table stocke le total et référence la commande dans 'orders'
-        const { data: commandeData, error: commandeError } = await supabaseAdmin
-            .from('commandes')
-            .insert({
-                order_id: orderId, // Lien vers la table 'orders'
-                client_name: client_name || 'Client sur place',
-                total_price: total_price,
-                table_number: table_number,
-                notes: notes,
-            })
-            .select('id') // Récupère l'ID pour l'étape suivante
-            .single();
-
-        if (commandeError) {
-            console.error('❌ Erreur Supabase (Table commandes) :', commandeError.message);
-            c.status(500);
-            return c.json({ message: `Erreur lors de l'insertion dans la table 'commandes': ${commandeError.message}` });
-        }
-
-        const commandeId = commandeData.id;
-        console.log('✅ Commande insérée dans la table "commandes" avec ID :', commandeId);
-
-        // --- 3. Préparation et Insertion des articles pour la table 'commande_items' ---
-        const commandeItemsToInsert = items.map((item: any) => ({
-            commande_id: commandeId, // Clé étrangère vers la table 'commandes'
-            // Le nom des colonnes ici DOIT correspondre à 'public.commande_items'
-            food_name: item.name,
-            price: item.price,
-            quantity: item.quantity || 1,
-        }));
-
-        const { error: itemsError } = await supabaseAdmin
-            .from('commande_items') // Nom exact de la table
-            .insert(commandeItemsToInsert);
-
-        if (itemsError) {
-            console.error('❌ Erreur Supabase (Table commande_items) :', itemsError.message);
-            // La commande principale est créée, mais les items ont échoué
-            c.status(500);
-            return c.json({ message: `Erreur lors de l'enregistrement des articles : ${itemsError.message}. Vérifiez les noms de colonnes.` });
-        }
-
-        // --- 4. MISE À JOUR DU STATUT DE LA TABLE (si applicable) ---
-        if (table_number !== undefined && table_number !== null) {
-            console.log(`🔄 Tentative de mise à jour du statut de la table ${table_number}...`);
-            const { error: tableUpdateError } = await supabaseAdmin
-                .from('tables') // Remplacez par le nom de votre table de tables
-                .update({
-                    status: 'occupied', // ou 'Occupée' selon votre schéma, converti en minuscule plus bas
-                    order_summary: `${items.length} plat(s) pour ${client_name || 'Client sur place'}`, // Exemple de résumé
-                    time_occupied: new Date().toISOString(), // Enregistrer l'heure d'occupation
-                })
-                .eq('id', table_number); // Supposons que 'table_number' corresponde à 'id' dans la table 'tables'
-
-            if (tableUpdateError) {
-                console.error('❌ Erreur lors de la mise à jour du statut de la table:', tableUpdateError.message);
-                // ATTENTION: La commande a été créée, mais la table n'a pas été mise à jour.
-                // Vous pourriez vouloir annuler la commande ou gérer cette erreur différemment.
-                // Pour l'instant, on loggue l'erreur mais on continue.
-            } else {
-                 console.log(`✅ Statut de la table ${table_number} mis à jour.`);
-            }
-        } else {
-            console.log('ℹ️ Aucun numéro de table fourni, mise à jour du statut ignorée.');
-        }
-
-        // --- 5. Succès ---
-        console.log('✅ Commande complète enregistrée !');
-        return c.json({
-            message: 'Commande enregistrée avec succès',
-            order_id: orderId,
-            commande_id: commandeId,
-        }, 200);
-
-    } catch (error: any) {
-        // Erreur de JSON mal formé ou autre erreur inattendue
-        console.error('❌ Erreur Hono/Serveur interne :', error.message);
-        c.status(500);
-        return c.json({ message: 'Erreur interne du serveur lors du traitement de la requête.' });
+      const contentType = c.req.header('Content-Type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.log('❌ Content-Type non JSON:', contentType);
+        c.status(400);
+        return c.json({ message: 'Content-Type doit être application/json' });
+      }
+      body = await c.req.json();
+      console.log('📦 Données reçues:', JSON.stringify(body, null, 2));
+    } catch (parseError: any) {
+      console.error('❌ Erreur de parsing JSON:', parseError.message);
+      c.status(400);
+      return c.json({ message: 'Erreur de parsing JSON: ' + parseError.message });
     }
+
+    const { client_name, total_price, items, table_number, notes } = body;
+
+    if (!total_price || typeof total_price !== 'number' || !items || items.length === 0) {
+      console.log('❌ Validation échouée:', { total_price, items });
+      c.status(400);
+      return c.json({ message: 'Données de commande incomplètes ou mal formées.' });
+    }
+
+    // --- 1. Insérer dans 'orders' (SANS le statut) ---
+    const { data: orderData, error: orderError } = await supabaseAdmin
+      .from('orders')
+      .insert({
+        client_name: client_name || 'Client sur place',
+        table_number: table_number,
+        notes: notes,
+        // ❌ NE PAS mettre 'status' ici
+      })
+      .select('id')
+      .single();
+
+    if (orderError) {
+      console.error('❌ Erreur Supabase (Table orders):', orderError.message);
+      c.status(500);
+      return c.json({ message: `Erreur 'orders': ${orderError.message}` });
+    }
+
+    const orderId = orderData.id;
+    console.log('✅ ID orders:', orderId);
+
+    // --- 2. Insérer dans 'commandes' (AVEC le statut) ---
+    const { data: commandeData, error: commandeError } = await supabaseAdmin
+      .from('commandes')
+      .insert({
+        order_id: orderId,
+        client_name: client_name || 'Client sur place',
+        total_price: total_price,
+        table_number: table_number,
+        notes: notes,
+        status: 'pending', // ✅ Le statut est ici, dans 'commandes'
+      })
+      .select('id')
+      .single();
+
+    if (commandeError) {
+      console.error('❌ Erreur Supabase (Table commandes):', commandeError.message);
+      c.status(500);
+      return c.json({ message: `Erreur 'commandes': ${commandeError.message}` });
+    }
+
+    const commandeId = commandeData.id;
+    console.log('✅ ID commandes:', commandeId);
+
+    // --- 3. Insérer les articles ---
+    const commandeItemsToInsert = items.map((item: any) => ({
+      commande_id: commandeId,
+      food_name: item.name,
+      price: item.price,
+      quantity: item.quantity || 1,
+    }));
+
+    const { error: itemsError } = await supabaseAdmin
+      .from('commande_items')
+      .insert(commandeItemsToInsert);
+
+    if (itemsError) {
+      console.error('❌ Erreur (commande_items):', itemsError.message);
+      c.status(500);
+      return c.json({ message: `Erreur articles: ${itemsError.message}` });
+    }
+
+    // --- 4. Mettre à jour la table ---
+    if (table_number != null) {
+      const { error: tableError } = await supabaseAdmin
+        .from('tables')
+        .update({
+          status: 'occupied',
+          order_summary: `${items.length} plat(s) pour ${client_name || 'Client'}`,
+          time_occupied: new Date().toISOString(),
+        })
+        .eq('number', table_number);
+
+      if (tableError) {
+        console.warn('⚠️ Erreur mise à jour table (non bloquante):', tableError.message);
+      } else {
+        console.log(`✅ Table ${table_number} marquée comme occupée.`);
+      }
+    }
+
+    // --- 5. Réponse de succès ---
+    console.log('✅ Commande enregistrée avec succès !');
+    return c.json({
+      message: 'Commande enregistrée avec succès',
+      order_id: orderId,
+      commande_id: commandeId,
+      status: 'pending',
+    }, 200);
+
+  } catch (error: any) {
+    console.error('❌ Erreur serveur interne:', error.message);
+    c.status(500);
+    return c.json({ message: 'Erreur interne du serveur.' });
+  }
 });
 
+// PUT /commandes/:id/status → Mettre à jour le statut
+commandesRoute.put('/:id/status', async (c) => {
+  const id = c.req.param('id');
+  const { status } = await c.req.json();
+
+  const validStatuses = ['pending', 'in_progress', 'done'];
+  if (!validStatuses.includes(status)) {
+    c.status(400);
+    return c.json({ error: 'Statut invalide. Utilisez: pending, in_progress, done.' });
+  }
+
+  const { error } = await supabaseAdmin
+    .from('commandes')
+    .update({ status })
+    .eq('id', id);
+
+  if (error) {
+    console.error('❌ Erreur mise à jour statut:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+
+  // ✅ Si le statut est 'done', libérer automatiquement la table
+  if (status === 'done') {
+    const { data: commande } = await supabaseAdmin
+      .from('commandes')
+      .select('table_number')
+      .eq('id', id)
+      .single();
+
+    if (commande?.table_number) {
+      const { error: tableError } = await supabaseAdmin
+        .from('tables')
+        .update({
+          status: 'free',
+          order_summary: null,
+          time_occupied: null,
+        })
+        .eq('number', commande.table_number);
+
+      if (tableError) {
+        console.warn('⚠️ Impossible de libérer la table:', tableError.message);
+      } else {
+        console.log(`✅ Table ${commande.table_number} libérée automatiquement.`);
+      }
+    }
+  }
+
+  return c.json({ success: true, status }, 200);
+});
+
+// GET /commandes → Récupérer TOUTES les commandes avec leurs items
+commandesRoute.get('/', async (c) => {
+  try {
+    // Utiliser une requête SQL complexe pour joindre les tables
+    const { data, error } = await supabaseAdmin
+      .from('commandes')
+      .select(`
+        *,
+        commande_items (
+          food_name,
+          price,
+          quantity
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Erreur Supabase (GET /commandes):', error.message);
+      return c.json({ error: error.message }, 500);
+    }
+
+    // Transformer les données pour que `items` soit un tableau d'objets
+    const formattedData = data.map((row: any) => {
+      return {
+        ...row,
+        items: row.commande_items || [], // Si aucun item, retourner un tableau vide
+      };
+    });
+
+    return c.json(formattedData, 200);
+  } catch (err) {
+    console.error('❌ Erreur interne (GET /commandes):', err);
+    return c.json({ error: 'Erreur interne du serveur' }, 500);
+  }
+});
 export { commandesRoute };

@@ -7,7 +7,7 @@ const Color primaryBlue = Color(0xFF0D3B66);    // Bleu Nuit
 const Color goldAccent = Color(0xFFD4AF37);     // Or Vif
 const Color oliveGreen = Color(0xFF6B8E23);     // Vert Olive
 
-const Color ivoryWhite = Color(0xFFFFF0F0);     // Blanc Ivoire
+const Color ivoryWhite = Color(0xFFFDFDFD);     // Blanc Ivoire
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({super.key});

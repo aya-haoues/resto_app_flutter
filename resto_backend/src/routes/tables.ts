@@ -1,17 +1,16 @@
 // routes/tables.ts
 import { Hono } from 'hono';
-import { supabaseAdmin } from '../index'; // Assurez-vous que le chemin est correct
+import { supabaseAdmin } from '../index';
 
 const tablesRoute = new Hono();
-
 
 // GET /tables → Fetch all table statuses
 tablesRoute.get('/', async (c) => {
   try {
     const { data, error } = await supabaseAdmin
-      .from('tables') // Nom de votre table Supabase
-      .select('*') // Sélectionne toutes les colonnes, y compris 'order_summary'
-      .order('number'); // Triez par 'number' pour une présentation cohérente
+      .from('tables')
+      .select('*')
+      .order('number');
 
     if (error) {
       console.error('Erreur Supabase (GET tables):', error);
@@ -25,40 +24,67 @@ tablesRoute.get('/', async (c) => {
   }
 });
 
-// routes/tables.ts
- // PUT /tables/:id → Update table status AND notes
- tablesRoute.put('/:id', async (c) => {
-   const id = c.req.param('id');
-   const body = await c.req.json();
-   const { status, notes } = body; // <--- EXTRAIRE LE CHAMP 'notes'
+// GET /tables/:number → Fetch a single table by its number
+tablesRoute.get('/:number', async (c) => {
+  const number = parseInt(c.req.param('number'));
+  if (isNaN(number)) {
+    c.status(400);
+    return c.json({ error: 'Le numéro de table doit être un entier.' });
+  }
 
-   if (!status || (status !== 'free' && status !== 'occupied')) {
-      console.log('❌ Statut non valide reçu:', status);
-      c.status(400);
-      return c.json({ error: 'Statut invalide. Utilisez "free" ou "occupied".' });
-   }
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('tables')
+      .select('*')
+      .eq('number', number)
+      .single();
 
-   const tableNumber = parseInt(id);
-   if (isNaN(tableNumber)) {
-     c.status(400);
-     return c.json({ error: 'Le numéro de table doit être un entier.' });
-   }
+    if (error) {
+      console.error('Erreur Supabase (GET table by number):', error);
+      c.status(500);
+      return c.json({ error: error.message });
+    }
 
-   const { error } = await supabaseAdmin
-     .from('tables') // Nom de votre table Supabase
-     .update({
-       status: status,
-       notes: notes // <--- SAUVEGARDER LE CHAMP 'notes'
-     })
-     .eq('number', tableNumber); // <--- Utiliser 'number' pour trouver la ligne à mettre à jour
+    return c.json(data, 200);
+  } catch (err) {
+    console.error('Erreur interne (GET table by number):', err);
+    c.status(500);
+    return c.json({ error: 'Erreur interne du serveur' });
+  }
+});
 
-   if (error) {
-     console.error('Erreur Supabase (PUT table):', error);
-     return c.json({ error: error.message }, 500);
-   }
+// PUT /tables/:id → Update table status AND notes
+tablesRoute.put('/:id', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  const { status, notes } = body;
 
-   return c.json({ success: true }, 200);
- });
+  if (!status || (status !== 'free' && status !== 'occupied')) {
+    console.log('❌ Statut non valide reçu:', status);
+    c.status(400);
+    return c.json({ error: 'Statut invalide. Utilisez "free" ou "occupied".' });
+  }
 
+  const tableNumber = parseInt(id);
+  if (isNaN(tableNumber)) {
+    c.status(400);
+    return c.json({ error: 'Le numéro de table doit être un entier.' });
+  }
+
+  const { error } = await supabaseAdmin
+    .from('tables')
+    .update({
+      status: status,
+      notes: notes,
+    })
+    .eq('number', tableNumber);
+
+  if (error) {
+    console.error('Erreur Supabase (PUT table):', error);
+    return c.json({ error: error.message }, 500);
+  }
+
+  return c.json({ success: true }, 200);
+});
 
 export { tablesRoute };

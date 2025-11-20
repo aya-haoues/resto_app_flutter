@@ -4,7 +4,6 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../models/food_item.dart';
 
-// --- NOUVEAU : Définir une classe Category ---
 class Category {
   final String id;
   final String name;
@@ -18,16 +17,15 @@ class Category {
     );
   }
 }
-// --- FIN NOUVEAU ---
 
 class MenuManagementColors {
   // Réutilisez les couleurs de votre Dashboard si elles doivent être cohérentes
   // ou définissez-en de nouvelles spécifiques à ce module.
   // Exemple (remplacez par vos vraies couleurs) :
-  static const Color buttonGradientStart = Color(0xFFFF9E80); // Exemple : Coral doux
+  static const Color buttonGradientStart = Color(0xFFFDFDFD); // Exemple : Coral doux
   static const Color buttonGradientEnd = Color(0xFFFF6B9D);   // Exemple : Rose poudré
   // Ajoutez d'autres couleurs spécifiques à MenuManagementScreen si nécessaire
-  static const Color primaryBackground = Color(0xFFFFF0F0); // Exemple : _ivoryWhite
+  static const Color primaryBackground = Color(0xFFFFFFFF); // Exemple : _ivoryWhite
   static const Color textPrimary = Color(0xFF0D3B66);       // Exemple : _primaryBlue
 // ... autres couleurs ...
 }
@@ -35,7 +33,7 @@ class MenuManagementColors {
 // ... Vos constantes de couleurs ...
 const Color _primaryBlue = Color(0xFF0D3B66);
 const Color _goldAccent = Color(0xFFD4AF37);
-const Color _ivoryWhite = Color(0xFFFFF0F0);
+const Color _ivoryWhite = Color(0xFFF8FAFC);
 const Color _textSecondary = Color(0xFF64748B);
 const Color _oliveGreen = Color(0xFF6B8E23);
 const Color _pimentRed = Color(0xFFE63946);

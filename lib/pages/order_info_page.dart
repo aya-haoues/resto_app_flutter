@@ -9,7 +9,7 @@ import 'home_page.dart';
 
 // ... vos constantes de couleurs (primaryBackground, textPrimary, etc.) ...
 // Exemple (remplacez par vos véritables constantes) :
-const Color primaryBackground = Color(0xFFFFF0F0);
+const Color primaryBackground = Color(0xFFF8FAFC);
 const Color textPrimary = Color(0xFF1E293B);
 const Color textSecondary = Color(0xFF64748B);
 const Color accentOrange = Color(0xFFFF6B35);

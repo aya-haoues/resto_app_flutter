@@ -34,7 +34,7 @@ class _HomePageState extends State<HomePage> {
 
   // Palette de couleurs
   final Color _accentColor = const Color(0xFFFF6B35);
-  final Color _backgroundColor = Colors.white;
+  final Color _backgroundColor = Color(0xFFF8FAFC);
   final Color _textPrimary = const Color(0xFF1E293B);
   final Color _textSecondary = const Color(0xFF64748B);
 
@@ -244,6 +244,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+
   AppBar _buildAppBar() {
     return AppBar(
       title: Column(
@@ -261,9 +262,19 @@ class _HomePageState extends State<HomePage> {
       ),
       backgroundColor: _backgroundColor,
       elevation: 0,
+      actions: [
+        // Add a logout/back to welcome button
+        IconButton(
+          icon: Icon(Icons.logout, color: _accentColor),
+          tooltip: 'Retour à l\'accueil',
+          onPressed: () {
+            // Navigate back to Welcome Page
+            Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+          },
+        ),
+      ],
     );
   }
-
   BottomNavigationBar _buildBottomNavigationBar() {
     return BottomNavigationBar(
       currentIndex: _currentIndex,
