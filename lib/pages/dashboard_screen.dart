@@ -151,7 +151,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 // ... dans la fonction _showOrderDetails ...
 
-  // dashboard_screen.dart
   void _showOrderDetails(BuildContext context, TableInfo table) {
     Color statusColor;
     String statusText;
@@ -171,13 +170,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         statusText = table.status;
     }
 
-    // Find the corresponding order for this table (if any)
     Commande? associatedOrder;
     if (table.status.toLowerCase() == 'occupied' || table.status.toLowerCase() == 'occupée') {
-      associatedOrder = _orders.firstWhereOrNull(
-            (order) => order.tableNumber == table.number,
-      );
+      associatedOrder = _orders.firstWhereOrNull((order) => order.tableNumber == table.number);
     }
+
+    // Calculer dynamiquement la hauteur
+    final itemsCount = associatedOrder?.items.length ?? 0;
+    final totalHeight = 350.0 + (itemsCount * 60.0); // Hauteur de base + hauteur par article
 
     showDialog(
       context: context,
@@ -194,241 +194,248 @@ class _DashboardScreenState extends State<DashboardScreen> {
               color: DashboardColors.primaryText,
             ),
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: statusColor, width: 1),
-                ),
-                child: Text(
-                  statusText,
-                  style: TextStyle(
-                    fontFamily: 'Poppins',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: statusColor,
-                  ),
-                ),
-              ),
-              // Show notes if available
-              if (table.status.toLowerCase() == 'occupied' || table.status.toLowerCase() == 'occupée')
-                Padding(
-                  padding: const EdgeInsets.only(top: 12.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Notes du client :',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          color: DashboardColors.primaryText,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: SelectableText(
-                          table.notes ?? 'Aucune note spéciale',
-                          style: const TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 14,
-                            color: DashboardColors.primaryText,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              // Show elapsed time
-              if (table.status.toLowerCase() == 'occupied' || table.status.toLowerCase() == 'occupée')
-                Padding(
-                  padding: const EdgeInsets.only(top: 12.0),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.access_time, size: 16, color: Colors.grey),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Temps : ${_timeElapsed(DateTime.tryParse(table.timeOccupied ?? ''))}',
-                        style: const TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 13,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              const SizedBox(height: 16),
-              // Show order details if associated order exists
-              if (associatedOrder != null) ...[
-                const Text(
-                  'Détails de la commande :',
-                  style: TextStyle(
-                    fontFamily: 'Poppins',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                    color: DashboardColors.primaryText,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Client: ${associatedOrder.clientName}',
-                  style: const TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 16,
-                    color: DashboardColors.primaryText,
-                  ),
-                ),
-                Text(
-                  'Total: ${associatedOrder.totalPrice.toStringAsFixed(2)} DT',
-                  style: const TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 16,
-                    color: DashboardColors.primaryText,
-                  ),
-                ),
-                Text(
-                  'Notes: ${associatedOrder.notes}',
-                  style: const TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 16,
-                    color: DashboardColors.primaryText,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // Show current status with icon
-                Row(
-                  children: [
-                    Icon(
-                      associatedOrder.getStatusIcon(),
-                      color: associatedOrder.getStatusColor(),
-                      size: 20,
+          content: SizedBox(
+            width: double.infinity,
+            height: totalHeight > 600 ? 600 : totalHeight,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: statusColor, width: 1),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Statut: ${associatedOrder.getStatusText()}',
+                    child: Text(
+                      statusText,
                       style: TextStyle(
                         fontFamily: 'Poppins',
-                        fontSize: 14,
-                        color: associatedOrder.getStatusColor(),
                         fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: statusColor,
+                      ),
+                    ),
+                  ),
+                  if (table.status.toLowerCase() == 'occupied' || table.status.toLowerCase() == 'occupée')
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Notes du client :',
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              color: DashboardColors.primaryText,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: SelectableText(
+                              table.notes ?? 'Aucune note spéciale',
+                              style: const TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 14,
+                                color: DashboardColors.primaryText,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (table.status.toLowerCase() == 'occupied' || table.status.toLowerCase() == 'occupée')
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12.0),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.access_time, size: 16, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Temps : ${_timeElapsed(DateTime.tryParse(table.timeOccupied ?? ''))}',
+                            style: const TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 13,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  // Show order details if associated order exists
+                  if (associatedOrder != null) ...[
+                    const Text(
+                      'Détails de la commande :',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        color: DashboardColors.primaryText,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Client: ${associatedOrder.clientName}',
+                      style: const TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 16,
+                        color: DashboardColors.primaryText,
+                      ),
+                    ),
+                    Text(
+                      'Total: ${associatedOrder.totalPrice.toStringAsFixed(2)} DT',
+                      style: const TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 16,
+                        color: DashboardColors.primaryText,
+                      ),
+                    ),
+                    Text(
+                      'Notes: ${associatedOrder.notes}',
+                      style: const TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 16,
+                        color: DashboardColors.primaryText,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Show current status with icon
+                    Row(
+                      children: [
+                        Icon(
+                          associatedOrder.getStatusIcon(),
+                          color: associatedOrder.getStatusColor(),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Statut: ${associatedOrder.getStatusText()}',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 14,
+                            color: associatedOrder.getStatusColor(),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // ✅ AFFICHAGE DES ARTICLES SANS ListView.builder
+                    const Text(
+                      'Articles :',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        color: DashboardColors.primaryText,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...List.generate(
+                      associatedOrder.items.length,
+                          (index) {
+                        final item = associatedOrder!.items[index];
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+                          leading: Text('${index + 1}.'),
+                          title: Text(item['food_name'] as String),
+                          subtitle: Text('Quantité: ${item['quantity']}'),
+                          trailing: Text('${item['price'].toStringAsFixed(2)} DT'),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // ✅ BOUTONS AVEC UNE VARIABLE NON-NULLE
+                    (() {
+                      // 🟢 ICI : Crée une variable locale NON OPTIONNELLE
+                      final Commande order = associatedOrder!;
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => _updateOrderStatus(order.id, 'in_progress'),
+                              icon: const Icon(Icons.access_time, color: Colors.white),
+                              label: const Text('En Cours'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => _updateOrderStatus(order.id, 'done'),
+                              icon: const Icon(Icons.check_circle, color: Colors.white),
+                              label: const Text('Terminée'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }()),
+                  ] else ...[
+                    const Text(
+                      'Aucune commande associée à cette table.',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 16,
+                        color: DashboardColors.primaryText,
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 16),
-                // Show items
-                const Text(
-                  'Articles :',
-                  style: TextStyle(
-                    fontFamily: 'Poppins',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                    color: DashboardColors.primaryText,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // Afficher un message indiquant que les détails complets sont dans la commande
-                Text(
-                  'Voir la commande complète dans l’onglet "Commandes".',
-                  style: TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 12,
-                    color: Colors.grey,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // ✅ FIX: Capture non-null order
-                (() {
-                  final nonNullOrder = associatedOrder;
-                  return Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => _updateOrderStatus(nonNullOrder!.id, 'in_progress'),
-                          icon: Icon(Icons.access_time, color: Colors.white),
-                          label: const Text('En Cours'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            elevation: 4,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                  const SizedBox(height: 20),
+                  if (table.status.toLowerCase() == 'occupied' || table.status.toLowerCase() == 'occupée')
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          _markTableAsAvailable(table.number);
+                          Navigator.of(context).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: DashboardColors.statusAvailable,
+                              content: Text('Table ${table.number} libérée avec succès !'),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.check_circle, color: Colors.white),
+                        label: const Text(
+                          'Marquer comme Libre',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => _updateOrderStatus(nonNullOrder!.id, 'done'),
-                          icon: Icon(Icons.check_circle, color: Colors.white),
-                          label: const Text('Terminée'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            elevation: 4,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                }()),
-              ] else ...[
-                const Text(
-                  'Aucune commande associée à cette table.',
-                  style: TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 16,
-                    color: DashboardColors.primaryText,
-                  ),
-                ),
-              ],
-              if (table.status.toLowerCase() == 'occupied' || table.status.toLowerCase() == 'occupée') ...[
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      _markTableAsAvailable(table.number);
-                      Navigator.of(context).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
+                        style: ElevatedButton.styleFrom(
                           backgroundColor: DashboardColors.statusAvailable,
-                          content: Text('Table ${table.number} libérée avec succès !'),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
-                      );
-                    },
-                    icon: const Icon(Icons.check_circle, color: Colors.white),
-                    label: const Text(
-                      'Marquer comme Libre',
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: DashboardColors.statusAvailable,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      elevation: 4,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  ),
-                ),
-              ],
-            ],
+                ],
+              ),
+            ),
           ),
           actions: [
             TextButton(
@@ -915,6 +922,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Function to load orders
 
 // dashboard_screen.dart
+// Function to load orders WITH ITEMS
   Future<void> _loadOrders() async {
     if (!mounted) return;
     setState(() {
@@ -923,7 +931,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.56.1:8082/commandes'), // 👈 CHANGER ICI : Utilisez /commandes_with_items
+        Uri.parse('http://192.168.56.1:8082/commandes_with_items'), // 👈 CHANGER ICI : Utilisez /commandes_with_items
       );
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);

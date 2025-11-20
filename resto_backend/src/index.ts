@@ -10,6 +10,7 @@ import { menuRoute } from './routes/menu';
 import { categoriesRoute } from './routes/categories';
 import { tablesRoute } from './routes/tables';
 import { ordersRoute } from './routes/orders'; // 👈 IMPORT NEW ROUTE
+import { commandesWithItemsRoute } from './routes/commandes_with_items'; // 👈 AJOUTER CETTE LIGNE
 dotenv.config({ path: "./.env" });
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -53,6 +54,7 @@ app.route("/menu", menuRoute);
 app.route("/categories", categoriesRoute);
 app.route("/tables", tablesRoute);
 app.route('/orders', ordersRoute);
+app.route('/commandes_with_items', commandesWithItemsRoute); // 👈 AJOUTER CETTE LIGNE
 const PORT = Number(process.env.PORT) || 8082;
 
 serve({

@@ -34,10 +34,10 @@ class Commande {
       notes: json['notes'] as String,
       status: json['status'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
-      items: (json['items'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ?? [],// 👈 Ajoutez ce champ
+      // ✅ ICI : Utiliser 'items' si disponible, sinon une liste vide
+      items: (json['items'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ?? [],
     );
   }
-
   // Helper to get status color
   Color getStatusColor() {
     switch (status.toLowerCase()) {
