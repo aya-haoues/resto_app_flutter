@@ -10,6 +10,8 @@ class CommandesPage extends StatefulWidget {
   final String clientName;
   final int tableNumber;
   final String notes;
+  final String? orderId; // Accepte un orderId optionnel
+  final String? orderStatus;
 
   const CommandesPage({
     super.key,
@@ -17,6 +19,8 @@ class CommandesPage extends StatefulWidget {
     required this.clientName,
     required this.tableNumber,
     required this.notes,
+    this.orderId,
+    this.orderStatus,
   });
 
   @override
@@ -33,6 +37,11 @@ class _CommandesPageState extends State<CommandesPage> {
   final Color _successColor = Color(0xFF10B981);
   final Color _errorColor = Color(0xFFEF4444);
 
+  // État pour gérer une commande existante
+  bool _isDisplayingExistingOrder = false;
+  Map<String, dynamic>? _existingOrderData;
+  bool _isLoading = true; // Ajouté pour afficher un indicateur de chargement
+
   late List<FoodItem> _localPanier;
   bool _isSubmitting = false;
 
@@ -40,6 +49,54 @@ class _CommandesPageState extends State<CommandesPage> {
   void initState() {
     super.initState();
     _localPanier = List<FoodItem>.from(widget.panier);
+
+    // Si un orderId est fourni, on est en mode "client existant"
+    if (widget.orderId != null) {
+      _isDisplayingExistingOrder = true;
+      _fetchExistingOrder(widget.orderId!);
+    }
+  }
+
+  // Fonction pour charger la commande existante
+  Future<void> _fetchExistingOrder(String orderId) async {
+    setState(() { _isLoading = true; }); // Commencer le chargement
+    try {
+      // UTILISER LA BONNE ROUTE: /commandes_with_items
+      final response = await http.get(
+        Uri.parse('http://192.168.56.1:8082/commandes_with_items'),
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> allOrders = jsonDecode(response.body);
+        // Trouver LA commande par son ID
+        final order = allOrders.firstWhere(
+              (o) => o['id'] == orderId,
+          orElse: () => null,
+        );
+
+        if (order != null) {
+          setState(() {
+            _existingOrderData = order;
+            _isLoading = false; // Arrêter le chargement
+          });
+        } else {
+          // Gérer le cas où la commande n'est pas trouvée
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Commande non trouvée.'), backgroundColor: Colors.red),
+          );
+          setState(() { _isLoading = false; }); // Arrêter le chargement
+        }
+      } else {
+        print('Failed to fetch orders: ${response.statusCode}');
+        setState(() { _isLoading = false; }); // Arrêter le chargement
+      }
+    } catch (e) {
+      print('Error fetching order: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur de chargement.'), backgroundColor: Colors.red),
+      );
+      setState(() { _isLoading = false; }); // Arrêter le chargement
+    }
   }
 
   void _removeItem(FoodItem item) {
@@ -79,7 +136,9 @@ class _CommandesPageState extends State<CommandesPage> {
     return Scaffold(
       backgroundColor: _backgroundColor,
       appBar: _buildAppBar(),
-      body: _localPanier.isEmpty
+      body: _isDisplayingExistingOrder
+          ? _buildExistingOrderView()
+          : _localPanier.isEmpty
           ? _buildEmptyState()
           : Column(
         children: [
@@ -91,6 +150,231 @@ class _CommandesPageState extends State<CommandesPage> {
     );
   }
 
+  // --- VUE POUR UNE COMMANDE EXISTANTE ---
+  Widget _buildExistingOrderView() {
+    if (_isLoading) {
+      // Afficher un indicateur de chargement pendant que les données sont récupérées
+      return Center(
+        child: CircularProgressIndicator(color: _primaryColor),
+      );
+    }
+
+    if (_existingOrderData == null) {
+      // Afficher un message d'erreur si les données ne sont pas disponibles
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, color: _errorColor, size: 48),
+            const SizedBox(height: 16),
+            Text(
+              'Impossible de charger votre commande.',
+              style: TextStyle(color: _textSecondary, fontSize: 16),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final items = _existingOrderData!['items'] as List<dynamic>;
+    final total = (_existingOrderData!['total_price'] as num).toDouble();
+    final status = _existingOrderData!['status'] as String;
+    final clientName = _existingOrderData!['client_name'] as String;
+    final tableNumber = _existingOrderData!['table_number'] as int;
+    final notes = _existingOrderData!['notes'] as String;
+
+    return Column(
+      children: [
+        _buildHeaderInfoForExistingOrder(status),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final item = items[index];
+              final imageUrl = item['food_name'].toString().toLowerCase().contains('bol')
+                  ? 'https://via.placeholder.com/80x100.png?text=Bol'
+                  : 'https://via.placeholder.com/80x100.png?text=Plat'; // Remplacez ceci par l'URL réelle de votre image depuis la base de données
+
+              // Pour utiliser l'image depuis la base de données, vous devez avoir un champ comme 'image_url'.
+              // Par exemple, si votre modèle a un champ 'image_path', utilisez :
+              // final imageUrl = 'http://192.168.56.1:8082/assets/images/${item['image_path']}';
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: _cardColor,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    // Image du plat
+                    Container(
+                      width: 80,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(16),
+                          bottomLeft: Radius.circular(16),
+                        ),
+                        image: DecorationImage(
+                          image: NetworkImage(imageUrl), // Utilisez NetworkImage pour les URLs
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item['food_name'] as String,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: _textPrimary,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Quantité: ${item['quantity']}',
+                              style: TextStyle(
+                                color: _textSecondary,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  "${(item['price'] as num).toStringAsFixed(2)} DT",
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: _primaryColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        _buildBottomPanelForExistingOrder(total, status),
+      ],
+    );
+  }
+
+  Widget _buildHeaderInfoForExistingOrder(String status) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _primaryColor.withOpacity(0.05),
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.restaurant, color: _primaryColor, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Votre commande",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: _textPrimary,
+                    fontSize: 14,
+                  ),
+                ),
+                Text(
+                  "Statut: ${_getStatusText(status)}",
+                  style: TextStyle(
+                    color: _getStatusColor(status),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: _getStatusColor(status).withOpacity(0.15),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              _getStatusText(status).toUpperCase(),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomPanelForExistingOrder(double total, String status) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildPriceRow("Total à payer", total, isTotal: true),
+          const SizedBox(height: 20),
+          Text(
+            "Votre commande est en cours de préparation.",
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: _primaryColor,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- WIDGETS POUR LE PANIER NORMAL ---
   AppBar _buildAppBar() {
     return AppBar(
       title: Text(
@@ -321,11 +605,9 @@ class _CommandesPageState extends State<CommandesPage> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: IconButton(
-                          icon: Icon(Icons.delete_outline,
-                              color: _errorColor, size: 20),
+                          icon: Icon(Icons.delete_outline, color: _errorColor, size: 20),
                           onPressed: () => _removeItem(item),
                           padding: EdgeInsets.all(4),
-                          constraints: BoxConstraints(),
                         ),
                       ),
                     ],
@@ -369,9 +651,7 @@ class _CommandesPageState extends State<CommandesPage> {
               backgroundColor: _primaryColor,
               foregroundColor: Colors.white,
               padding: EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               elevation: 2,
             ),
             child: _isSubmitting
@@ -383,10 +663,7 @@ class _CommandesPageState extends State<CommandesPage> {
                 SizedBox(width: 8),
                 Text(
                   "Confirmer la commande",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -396,10 +673,7 @@ class _CommandesPageState extends State<CommandesPage> {
             onPressed: () => Navigator.pop(context),
             child: Text(
               "Continuer mes achats",
-              style: TextStyle(
-                color: _textSecondary,
-                fontWeight: FontWeight.w500,
-              ),
+              style: TextStyle(color: _textSecondary, fontWeight: FontWeight.w500),
             ),
           ),
         ],
@@ -434,7 +708,7 @@ class _CommandesPageState extends State<CommandesPage> {
     );
   }
 
-  // ✅ KEEP ONLY THIS VERSION of _confirmOrder
+  // --- FONCTION POUR CONFIRMER UNE NOUVELLE COMMANDE ---
   void _confirmOrder() async {
     if (_localPanier.isEmpty) {
       _showErrorDialog("Votre panier est vide.");
@@ -448,6 +722,7 @@ class _CommandesPageState extends State<CommandesPage> {
       "total_price": _total,
       "table_number": widget.tableNumber,
       "notes": widget.notes,
+      "client_id": widget.clientName,
       "items": _localPanier.map((item) => {
         "name": item.name,
         "price": item.price,
@@ -464,7 +739,6 @@ class _CommandesPageState extends State<CommandesPage> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        // ✅ Pass BOTH arguments
         _showSuccessDialog(data['order_id'], data['status']);
       } else {
         final errorBody = jsonDecode(response.body);
@@ -478,7 +752,7 @@ class _CommandesPageState extends State<CommandesPage> {
     }
   }
 
-  // ✅ KEEP ONLY THIS VERSION of _showSuccessDialog
+  // --- DIALOGUES ---
   void _showSuccessDialog(String? orderId, String? initialStatus) {
     showDialog(
       context: context,
@@ -562,5 +836,32 @@ class _CommandesPageState extends State<CommandesPage> {
         ],
       ),
     );
+  }
+
+  // --- HELPERS POUR LE STATUT ---
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return Colors.orange;
+      case 'in_progress':
+        return Colors.blue;
+      case 'done':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _getStatusText(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return 'En Attente';
+      case 'in_progress':
+        return 'En Cours';
+      case 'done':
+        return 'Terminée';
+      default:
+        return 'Inconnu';
+    }
   }
 }

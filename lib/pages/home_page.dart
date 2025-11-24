@@ -6,17 +6,22 @@ import 'menu_page.dart';
 import 'commandes_page.dart';
 import '../models/food_item.dart';
 import 'order_info_page.dart';
+import 'package:uuid/uuid.dart';
 
 class HomePage extends StatefulWidget {
   final String? initialClientName;
   final int? initialTableNumber;
   final String? initialNotes;
+  final String? initialOrderId;
+  final String? initialOrderStatus;
 
   const HomePage({
     super.key,
     this.initialClientName,
     this.initialTableNumber,
     this.initialNotes,
+    this.initialOrderId,
+    this.initialOrderStatus,
   });
 
   @override
@@ -31,6 +36,8 @@ class _HomePageState extends State<HomePage> {
   String? _clientName;
   int? _tableNumber;
   String? _notes;
+  String? _orderId;
+  String? _orderStatus;
 
   // Palette de couleurs
   final Color _accentColor = const Color(0xFFFF6B35);
@@ -122,6 +129,48 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _checkForExistingOrder(String clientName, int tableNumber) async {
+    final url = Uri.parse(
+        'http://192.168.56.1:8082/client-order?client_name=$clientName&table_number=$tableNumber');
+
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        // ✅ We found an existing order!
+        setState(() {
+          // Update the state to reflect the existing order details
+          // You might want to populate _panier from the order's items here
+          // For simplicity, we'll just navigate to CommandesPage with the existing order ID
+        });
+
+        // Navigate to CommandesPage, passing the existing order's ID
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CommandesPage(
+              panier: _panier, // You might need to reconstruct this from the order data
+              clientName: clientName,
+              tableNumber: tableNumber,
+              notes: _notes ?? "",
+            ),
+          ),
+        );
+      } else if (response.statusCode == 404) {
+        // No existing order, proceed as normal (user will create a new one)
+        // You don't need to do anything special here; the UI will show the empty cart.
+      } else {
+        // Handle other errors
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur de recherche d\'ordre')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur réseau: $e')),
+      );
+    }
+  }
   // --- FONCTIONS AIDE POUR LES CATÉGORIES DYNAMIQUES ---
   // Vous pouvez personnaliser ces fonctions pour associer des emojis et couleurs spécifiques
   String _getEmojiForCategory(String name) {
@@ -197,6 +246,8 @@ class _HomePageState extends State<HomePage> {
     _clientName = widget.initialClientName;
     _tableNumber = widget.initialTableNumber;
     _notes = widget.initialNotes;
+    _orderId = widget.initialOrderId;
+    _orderStatus = widget.initialOrderStatus;
     // Charger les catégories dynamiques après l'initialisation
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadDynamicCategories();
@@ -208,12 +259,16 @@ class _HomePageState extends State<HomePage> {
     final List<Widget> pages = [
       _buildHomeContent(),
       MenuPage(onAddToOrder: _addToCart),
+      // Use the new logic to decide what to show on the Commandes page
       if (_clientName != null && _tableNumber != null && _notes != null)
         CommandesPage(
           panier: _panier,
           clientName: _clientName!,
           tableNumber: _tableNumber!,
           notes: _notes!,
+          // Pass the order info to CommandesPage
+          orderId: _orderId,
+          orderStatus: _orderStatus,
         )
       else
         Center(

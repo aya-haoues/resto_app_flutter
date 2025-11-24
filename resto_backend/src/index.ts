@@ -10,6 +10,8 @@ import { menuRoute } from './routes/menu';
 import { categoriesRoute } from './routes/categories';
 import { tablesRoute } from './routes/tables';
 import { ordersRoute } from './routes/orders'; // 👈 IMPORT NEW ROUTE
+import { clientOrderRoute } from './routes/client_order';
+import { checkTableRoute } from './routes/check_table';
 import { commandesWithItemsRoute } from './routes/commandes_with_items'; // 👈 AJOUTER CETTE LIGNE
 dotenv.config({ path: "./.env" });
 
@@ -54,6 +56,8 @@ app.route("/menu", menuRoute);
 app.route("/categories", categoriesRoute);
 app.route("/tables", tablesRoute);
 app.route('/orders', ordersRoute);
+app.route('/client-order', clientOrderRoute);
+app.route('/check-table', checkTableRoute);
 app.route('/commandes_with_items', commandesWithItemsRoute); // 👈 AJOUTER CETTE LIGNE
 const PORT = Number(process.env.PORT) || 8082;
 

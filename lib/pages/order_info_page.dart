@@ -1,45 +1,44 @@
-// lib/pages/order_info_page.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // <--- AJOUTER CETTE LIGNE POUR FilteringTextInputFormatter
-import 'package:http/http.dart' as http; // <--- AJOUTER CETTE LIGNE POUR http
-import 'dart:convert'; // <--- AJOUTER CETTE LIGNE POUR jsonEncode
-import '../models/food_item.dart'; // Ajustez le chemin si nécessaire
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '../models/food_item.dart';
 import 'home_page.dart';
-// ... autres imports ...
 
-// ... vos constantes de couleurs (primaryBackground, textPrimary, etc.) ...
-// Exemple (remplacez par vos véritables constantes) :
+// Define color constants for the form
 const Color primaryBackground = Color(0xFFF8FAFC);
 const Color textPrimary = Color(0xFF1E293B);
 const Color textSecondary = Color(0xFF64748B);
-const Color accentOrange = Color(0xFFFF6B35);
+const Color accentOrange = Color(0xFFF17551);
+const Color accentGreen = Color(0xFFD64E4E);
 const Color shadowColor = Color(0x0F1E293B);
 
 class OrderInfoPage extends StatefulWidget {
-  final List<FoodItem> panier; // ✅ Nouveau paramètre pour le panier
-  const OrderInfoPage({super.key, required this.panier}); // ✅ Requis
+  final List<FoodItem> panier;
+  const OrderInfoPage({super.key, required this.panier});
 
   @override
-  State<OrderInfoPage> createState() => _OrderInfoPageState(); // <--- Renommé en _OrderInfoPageState
+  State<OrderInfoPage> createState() => _OrderInfoPageState();
 }
 
-// --- CHANGÉ : Renommé la classe d'état ---
-class _OrderInfoPageState extends State<OrderInfoPage> // <--- Renommé en _OrderInfoPageState
+class _OrderInfoPageState extends State<OrderInfoPage>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _tableController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
+
   late AnimationController _controller;
   late Animation<double> _opacityAnimation;
   late Animation<double> _slideAnimation;
   late Animation<double> _scaleAnimation;
   final FocusNode _nameFocusNode = FocusNode();
+
   bool _isLoading = false;
   String? _errorMessage;
 
-  // Variable pour stocker temporairement le numéro de table sélectionné
-  int? _selectedTableNumber;
+  // Toggle between modes: creating a new order vs finding an existing one
+  bool _isFindingOrder = false;
 
   @override
   void initState() {
@@ -79,104 +78,169 @@ class _OrderInfoPageState extends State<OrderInfoPage> // <--- Renommé en _Orde
     super.dispose();
   }
 
-  // --- NOUVELLE FONCTION : Mettre à jour le statut de la table dans la base de données ---
-  // lib/pages/order_info_page.dart
-  Future<void> _markTableAsOccupied(int tableNumber, String? notes) async {
-    // <--- Remettre 'notes' en paramètre
+  // --- WIDGET: Show a dialog with available tables ---
+  void _showAvailableTablesDialog(List<int> availableTables, String clientName, String? notes) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Table occupée !'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('La table que vous avez choisie est occupée.'),
+                const SizedBox(height: 8),
+                const Text('Veuillez choisir une table libre parmi les suivantes :'),
+                const SizedBox(height: 12),
+                // Afficher la liste des tables disponibles
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: availableTables.map((tableNum) {
+                    return ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: accentGreen,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      onPressed: () {
+                        // Mettre à jour le numéro de table dans le contrôleur
+                        _tableController.text = tableNum.toString();
+                        // Fermer la boîte de dialogue
+                        Navigator.of(context).pop();
+                      },
+                      child: Text('Table $tableNum'),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Annuler'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // --- FUNCTION: Find Existing Order ---
+  Future<void> _findExistingOrder(String clientName, int tableNumber) async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _isFindingOrder = true;
+    });
+
     try {
-      final response = await http.put(
-        Uri.parse('http://192.168.56.1:8082/tables/$tableNumber'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'status': 'occupied',
-          'notes': notes ?? 'Aucune note spéciale', // <--- REMETTRE L'ENVOI DES NOTES
-        }),
+      final response = await http.get(
+        Uri.parse(
+            'http://192.168.56.1:8082/client-order?client_name=$clientName&table_number=$tableNumber'),
       );
 
       if (response.statusCode == 200) {
-        print(
-            '✅ Statut de la table $tableNumber mis à jour à "occupied" et notes enregistrées dans la base de données.');
+        final data = jsonDecode(response.body);
+        // Navigate to HomePage with the found order's details
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => HomePage(
+              initialClientName: clientName,
+              initialTableNumber: tableNumber,
+              initialNotes: data['notes'] ?? "",
+              initialOrderId: data['id'],
+              initialOrderStatus: data['status'],
+            ),
+          ),
+        );
+      } else if (response.statusCode == 404) {
+        setState(() {
+          _errorMessage = 'Aucune commande active trouvée.';
+        });
       } else {
         final errorBody = jsonDecode(response.body);
         final errorMsg = errorBody['error'] ?? 'Erreur inconnue';
-        print(
-            '❌ Erreur lors de la mise à jour de la table $tableNumber: ${response
-                .statusCode} - $errorMsg');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur mise à jour table: $errorMsg'),
-                backgroundColor: Colors.red),
-          );
-        }
+        setState(() {
+          _errorMessage = 'Erreur: $errorMsg';
+        });
       }
     } catch (e) {
-      print(
-          '❌ Erreur réseau lors de la mise à jour de la table $tableNumber: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('Erreur réseau: $e'), backgroundColor: Colors.red),
-        );
-      }
+      setState(() {
+        _errorMessage = 'Erreur réseau: $e';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+        _isFindingOrder = false;
+      });
     }
   }
 
-  Future<void> _submitOrderInfo() async {
+  // --- FUNCTION: Submit New Order Info ---
+  // --- FUNCTION: Submit New Order Info (CORRIGÉE) ---
+  Future<void> _submitNewOrderInfo() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
+
     HapticFeedback.lightImpact();
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
+
     try {
-      // ✅ Récupérer les valeurs du formulaire
       final String clientName = _nameController.text.trim();
       final int tableNumber = int.parse(_tableController.text);
-      final String? notes = _notesController.text
-          .trim()
-          .isEmpty ? null : _notesController.text
-          .trim(); // <--- Récupérer les notes
+      final String? notes = _notesController.text.trim().isEmpty
+          ? null
+          : _notesController.text.trim();
 
-      // ✅ Stocker le numéro de table dans la variable d'instance
-      _selectedTableNumber = tableNumber;
+      // Check if the table is already occupied
+      final tableStatus = await _checkTableStatus(tableNumber);
+      if (tableStatus == 'occupied') {
+        // La table est occupée, on propose les tables libres
+        final availableTables = await _loadAvailableTables();
+        if (availableTables.isEmpty) {
+          setState(() {
+            _errorMessage = 'Toutes les tables sont actuellement occupées. Veuillez réessayer plus tard.';
+          });
+        } else {
+          // Afficher une boîte de dialogue avec les tables disponibles
+          _showAvailableTablesDialog(availableTables, clientName, notes);
+        }
+        return; // Important: ne pas continuer le processus normal
+      }
 
-      // ✅ Appeler la fonction pour marquer la table comme occupée ET enregistrer les notes
+      // Si la table est libre, on continue normalement
       await _markTableAsOccupied(tableNumber, notes);
-      // ✅ Afficher la notification de succès
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Informations envoyées!'),
-            backgroundColor: Colors.green,
-            duration: const Duration(milliseconds: 1500),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
-          ),
+          const SnackBar(content: Text('Informations envoyées!'), backgroundColor: Colors.green),
         );
       }
 
-      // ✅ Réinitialiser les champs du formulaire après succès
       _nameController.clear();
       _tableController.clear();
       _notesController.clear();
       _formKey.currentState?.reset();
 
-      // ✅ Naviguer vers HomePage avec les données client
       await Future.delayed(const Duration(milliseconds: 1500));
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (context) =>
-                HomePage(
-                  initialClientName: clientName,
-                  initialTableNumber: tableNumber,
-                  initialNotes: notes ??
-                      "", // <--- Passer les notes à HomePage (optionnel, pour affichage client)
-                ),
+            builder: (context) => HomePage(
+              initialClientName: clientName,
+              initialTableNumber: tableNumber,
+              initialNotes: notes ?? "",
+            ),
           ),
         );
       }
@@ -196,14 +260,76 @@ class _OrderInfoPageState extends State<OrderInfoPage> // <--- Renommé en _Orde
     }
   }
 
-  // --- WIDGETS PRIVÉS (déplacés hors de build) ---
+  // --- Helper: Load all tables to find available ones ---
+  Future<List<int>> _loadAvailableTables() async {
+    final availableTables = <int>[];
+    try {
+      final response = await http.get(
+        Uri.parse('http://192.168.56.1:8082/tables'),
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> tablesData = jsonDecode(response.body);
+        for (var table in tablesData) {
+          if (table['status'] != 'occupied') {
+            availableTables.add(table['number'] as int);
+          }
+        }
+      }
+    } catch (e) {
+      print('Erreur lors du chargement des tables disponibles: $e');
+    }
+    return availableTables;
+  }
 
+  // --- Helper: Check Table Status ---
+  Future<String?> _checkTableStatus(int tableNumber) async {
+    try {
+      final response = await http.get(
+        Uri.parse('http://192.168.56.1:8082/check-table/$tableNumber'),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['status'];
+      }
+    } catch (e) {
+      print('Erreur vérification table: $e');
+    }
+    return null;
+  }
+
+  // --- Helper: Mark Table as Occupied ---
+  Future<void> _markTableAsOccupied(int tableNumber, String? notes) async {
+    try {
+      final response = await http.put(
+        Uri.parse('http://192.168.56.1:8082/tables/$tableNumber'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'status': 'occupied',
+          'notes': notes ?? 'Aucune note spéciale',
+        }),
+      );
+      if (response.statusCode != 200) {
+        final errorBody = jsonDecode(response.body);
+        final errorMsg = errorBody['error'] ?? 'Erreur inconnue';
+        throw Exception('Erreur: $errorMsg');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+        );
+      }
+      rethrow;
+    }
+  }
+
+  // --- WIDGETS ---
   Widget _buildHeader() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Préparez votre commande',
+          _isFindingOrder ? 'Retrouver ma commande' : 'Préparez votre commande',
           style: TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.w800,
@@ -213,7 +339,9 @@ class _OrderInfoPageState extends State<OrderInfoPage> // <--- Renommé en _Orde
         ),
         const SizedBox(height: 8),
         Text(
-          'Renseignez vos informations pour commencer',
+          _isFindingOrder
+              ? 'Entrez vos informations pour retrouver votre commande.'
+              : 'Renseignez vos informations pour commencer',
           style: TextStyle(
             fontSize: 16,
             color: textSecondary,
@@ -253,7 +381,7 @@ class _OrderInfoPageState extends State<OrderInfoPage> // <--- Renommé en _Orde
         maxLines: maxLines,
         inputFormatters: keyboardType == TextInputType.number
             ? [FilteringTextInputFormatter.digitsOnly]
-            : null, // <--- CORRECTION : Utiliser FilteringTextInputFormatter
+            : null,
         style: const TextStyle(
           color: textPrimary,
           fontWeight: FontWeight.w500,
@@ -324,16 +452,12 @@ class _OrderInfoPageState extends State<OrderInfoPage> // <--- Renommé en _Orde
         curve: Curves.easeInOut,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          gradient: const LinearGradient( // <--- RENDU CONST ICI
+          gradient: const LinearGradient(
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
             colors: [
-              // Utilisez vos couleurs DashboardColors ou une autre constante si elles sont définies
-              // DashboardColors.buttonGradientStart,
-              // DashboardColors.buttonGradientEnd,
-              // Pour l'exemple, on utilise des couleurs arbitraires
-              Color(0xFFFF9E80), // Exemple : DashboardColors.accentCoral
-              Color(0xFFFF6B9D), // Exemple : DashboardColors.accentPink
+              Color(0xFFFF9E80),
+              Color(0xFFFF6B9D),
             ],
           ),
           boxShadow: [
@@ -346,12 +470,26 @@ class _OrderInfoPageState extends State<OrderInfoPage> // <--- Renommé en _Orde
           ],
         ),
         child: ElevatedButton(
-          onPressed: _isLoading ? null : _submitOrderInfo,
+          onPressed: _isLoading
+              ? null
+              : _isFindingOrder
+              ? () {
+            final String clientName = _nameController.text.trim();
+            final int tableNumber = int.tryParse(_tableController.text) ?? 0;
+            if (clientName.isNotEmpty && tableNumber > 0) {
+              _findExistingOrder(clientName, tableNumber);
+            } else {
+              setState(() {
+                _errorMessage = 'Veuillez entrer un nom et un numéro de table valides.';
+              });
+            }
+          }
+              : _submitNewOrderInfo,
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.transparent,
             foregroundColor: Colors.white,
             shadowColor: Colors.transparent,
-            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),
@@ -361,32 +499,38 @@ class _OrderInfoPageState extends State<OrderInfoPage> // <--- Renommé en _Orde
               ? const SizedBox(
             width: 24,
             height: 24,
-            child: CircularProgressIndicator(
-              color: Colors.white,
-              strokeWidth: 2,
-            ),
+            child: CircularProgressIndicator(color: Colors.white),
           )
-              : const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'CONFIRMER',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              SizedBox(width: 12),
-              Icon(Icons.arrow_forward_rounded, size: 20),
-            ],
+              : Text(
+            _isFindingOrder ? 'TROUVER MA COMMANDE' : 'CONFIRMER',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: 0.5),
           ),
         ),
       ),
     );
   }
 
-  // --- MÉTHODE BUILD ---
+  Widget _buildSwitchModeButton() {
+    return TextButton(
+      onPressed: () {
+        setState(() {
+          _isFindingOrder = !_isFindingOrder;
+          _errorMessage = null;
+          _nameController.clear();
+          _tableController.clear();
+          _notesController.clear();
+          _formKey.currentState?.reset();
+        });
+      },
+      child: Text(
+        _isFindingOrder
+            ? 'Je veux créer une nouvelle commande'
+            : 'J\'ai déjà commandé, retrouver ma commande',
+        style: TextStyle(color: accentOrange, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -394,11 +538,7 @@ class _OrderInfoPageState extends State<OrderInfoPage> // <--- Renommé en _Orde
       appBar: AppBar(
         title: const Text(
           'Informations de Commande',
-          style: TextStyle(
-            color: textPrimary,
-            fontWeight: FontWeight.w700,
-            fontSize: 20,
-          ),
+          style: TextStyle(color: textPrimary, fontWeight: FontWeight.w700, fontSize: 20),
         ),
         backgroundColor: primaryBackground,
         foregroundColor: textPrimary,
@@ -424,10 +564,8 @@ class _OrderInfoPageState extends State<OrderInfoPage> // <--- Renommé en _Orde
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        // En-tête
                         _buildHeader(),
                         const SizedBox(height: 32),
-                        // Formulaire
                         Form(
                           key: _formKey,
                           child: Column(
@@ -460,26 +598,25 @@ class _OrderInfoPageState extends State<OrderInfoPage> // <--- Renommé en _Orde
                                   return null;
                                 },
                               ),
-                              const SizedBox(height: 20),
-                              _buildTextField(
-                                controller: _notesController,
-                                labelText: 'Notes Spéciales',
-                                icon: Icons.note_alt_rounded,
-                                maxLines: 3,
-                                isOptional: true,
-                              ),
+                              if (!_isFindingOrder) ...[
+                                const SizedBox(height: 20),
+                                _buildTextField(
+                                  controller: _notesController,
+                                  labelText: 'Notes Spéciales',
+                                  icon: Icons.note_alt_rounded,
+                                  maxLines: 3,
+                                  isOptional: true,
+                                ),
+                              ],
                             ],
                           ),
                         ),
                         const SizedBox(height: 32),
-                        // Message d'erreur
-                        if (_errorMessage != null)
-                          _buildErrorCard(),
+                        if (_errorMessage != null) _buildErrorCard(),
                         const SizedBox(height: 24),
-                        // Bouton de soumission, enveloppé dans Center
-                        Center(
-                          child: _buildSubmitButton(),
-                        ),
+                        _buildSwitchModeButton(),
+                        const SizedBox(height: 12),
+                        Center(child: _buildSubmitButton()),
                       ],
                     ),
                   ),

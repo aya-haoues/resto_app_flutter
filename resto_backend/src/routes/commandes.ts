@@ -24,7 +24,7 @@ commandesRoute.post('/', async (c) => {
       return c.json({ message: 'Erreur de parsing JSON: ' + parseError.message });
     }
 
-    const { client_name, total_price, items, table_number, notes } = body;
+    const { client_name, total_price, items, table_number, notes, client_id } = body;
 
     if (!total_price || typeof total_price !== 'number' || !items || items.length === 0) {
       console.log('❌ Validation échouée:', { total_price, items });
@@ -39,7 +39,6 @@ commandesRoute.post('/', async (c) => {
         client_name: client_name || 'Client sur place',
         table_number: table_number,
         notes: notes,
-        // ❌ NE PAS mettre 'status' ici
       })
       .select('id')
       .single();
@@ -54,16 +53,24 @@ commandesRoute.post('/', async (c) => {
     console.log('✅ ID orders:', orderId);
 
     // --- 2. Insérer dans 'commandes' (AVEC le statut) ---
+    // Only include client_id if it was provided in the request
+    const commandeDataToInsert: any = {
+      order_id: orderId,
+      client_name: client_name || 'Client sur place',
+      total_price: total_price,
+      table_number: table_number,
+      notes: notes,
+      status: 'pending',
+    };
+
+    // Add client_id only if it exists
+    if (client_id !== undefined && client_id !== null) {
+      commandeDataToInsert.client_id = client_id;
+    }
+
     const { data: commandeData, error: commandeError } = await supabaseAdmin
       .from('commandes')
-      .insert({
-        order_id: orderId,
-        client_name: client_name || 'Client sur place',
-        total_price: total_price,
-        table_number: table_number,
-        notes: notes,
-        status: 'pending', // ✅ Le statut est ici, dans 'commandes'
-      })
+      .insert(commandeDataToInsert)
       .select('id')
       .single();
 
@@ -127,7 +134,6 @@ commandesRoute.post('/', async (c) => {
     return c.json({ message: 'Erreur interne du serveur.' });
   }
 });
-
 // PUT /commandes/:id/status → Mettre à jour le statut
 commandesRoute.put('/:id/status', async (c) => {
   const id = c.req.param('id');

@@ -10,7 +10,7 @@ class Commande {
   final String notes;
   final String status;
   final DateTime createdAt;
-  final List<Map<String, dynamic>> items;// 👈 Ajoutez ce champ
+  final List<Map<String, dynamic>> items;
 
   Commande({
     required this.id,
@@ -21,23 +21,36 @@ class Commande {
     required this.notes,
     required this.status,
     required this.createdAt,
-    required this.items, // 👈 Ajoutez ce champ
+    required this.items,
   });
 
   factory Commande.fromJson(Map<String, dynamic> json) {
+    // Safely extract the price, handling both int and double
+    dynamic rawPrice = json['total_price'];
+    double parsedPrice = 0.0;
+
+    if (rawPrice is int) {
+      parsedPrice = rawPrice.toDouble();
+    } else if (rawPrice is double) {
+      parsedPrice = rawPrice;
+    } else if (rawPrice is String) {
+      // Handle case where price is stored as a string
+      parsedPrice = double.tryParse(rawPrice) ?? 0.0;
+    }
+
     return Commande(
       id: json['id'] as String,
       orderId: json['order_id'] as String,
       clientName: json['client_name'] as String,
       tableNumber: json['table_number'] as int,
-      totalPrice: (json['total_price'] as num).toDouble(),
+      totalPrice: parsedPrice,
       notes: json['notes'] as String,
       status: json['status'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
-      // ✅ ICI : Utiliser 'items' si disponible, sinon une liste vide
       items: (json['items'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ?? [],
     );
   }
+
   // Helper to get status color
   Color getStatusColor() {
     switch (status.toLowerCase()) {

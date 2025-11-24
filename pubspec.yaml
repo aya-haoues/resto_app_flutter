@@ -30,6 +30,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  uuid: ^4.0.0
   supabase_flutter: ^2.5.0   # vérifier la version sur pub.dev si besoin
   flutter_dotenv: ^6.0.0     # pour variables d'env locales
   http: ^0.13.0

@@ -21,17 +21,30 @@ class Order {
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
+    // Extraire la valeur brute du prix
+    dynamic rawPrice = json['total_price'];
+
+    // Convertir en double en gérant les types possibles
+    double parsedPrice = 0.0;
+
+    if (rawPrice is int) {
+      parsedPrice = rawPrice.toDouble();
+    } else if (rawPrice is double) {
+      parsedPrice = rawPrice;
+    } else if (rawPrice is String) {
+      parsedPrice = double.tryParse(rawPrice) ?? 0.0;
+    }
+
     return Order(
       id: json['id'] as String,
       clientName: json['client_name'] as String,
       tableNumber: json['table_number'] as int,
-      totalPrice: (json['total_price'] as num).toDouble(),
+      totalPrice: parsedPrice, // ✅ Utiliser la variable parsee
       notes: json['notes'] as String,
       status: json['status'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
-
   // Helper to get status color
   Color getStatusColor() {
     switch (status.toLowerCase()) {

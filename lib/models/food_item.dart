@@ -35,17 +35,20 @@ class FoodItem {
   // 🔸 Factory constructor pour Supabase (recommandé)
   // Factory pour Supabase
   factory FoodItem.fromJson(Map<String, dynamic> json) {
+    // Ensure we get a double, even if the JSON provides an int.
+    final priceValue = json['price'];
+    final double price = (priceValue is int) ? priceValue.toDouble() : (priceValue as double? ?? 0.0);
+
     return FoodItem(
       json['name'] as String,
       'assets/images/${json['image_path'] ?? 'placeholder.jpg'}',
-      (json['price'] as num?)?.toDouble() ?? 0.0,
+      price, // Use the safely converted double here
       4.5,
       json['description'] ?? '',
       id: json['id'].toString(),
       category: json['category'] ?? 'Autre',
     );
   }
-
   get quantity => null;
 }
 
