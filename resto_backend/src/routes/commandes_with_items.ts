@@ -14,7 +14,8 @@ commandesWithItemsRoute.get('/', async (c) => {
         commande_items (
           food_name,
           price,
-          quantity
+          quantity,
+          supplements
         )
       `)
       .order('created_at', { ascending: false });

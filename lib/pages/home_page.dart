@@ -67,17 +67,7 @@ class _HomePageState extends State<HomePage> {
     PromotionalItem('Sandwich Kafteji', 'assets/images/kafteji.jpg', 8.00, 6.50),
   ];
 
-  final List<FoodItem> _popularItems = const [
-    FoodItem('Couscous Royal', 'assets/images/couscous.jpg', 12.99, 4.8, 'Semoule fine, agneau, légumes de saison'),
-    FoodItem('Pizza Royale', 'assets/images/pizza.jpg', 16.50, 4.9, 'Sauce tomate, mozzarella, jambon, champignons'),
-    FoodItem('Sushi Mix', 'assets/images/sushi.jpg', 18.75, 4.7, 'Assortiment de 12 pièces de sushi frais'),
-    FoodItem('Pâtes Carbonara', 'assets/images/pasta.jpg', 14.25, 4.6, 'Pâtes fraîches avec sauce carbonara crémeuse'),
-  ];
 
-  final List<FoodItem> _recommendedItems = const [
-    FoodItem('Salade César', 'assets/images/salad.jpg', 10.99, 4.5, 'Laitue romaine, croûtons, parmesan, sauce césar'),
-    FoodItem('Tiramisu', 'assets/images/tiramisu.jpg', 8.50, 4.8, 'Dessert italien au café et mascarpone'),
-  ];
 
   // --- NOUVELLE FONCTION : Charger les catégories depuis l'API ---
   Future<void> _loadDynamicCategories() async {
@@ -785,9 +775,9 @@ class _HomePageState extends State<HomePage> {
           height: 280,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            itemCount: _popularItems.length,
+            //itemCount: _popularItems.length,
             itemBuilder: (context, index) {
-              return _buildPopularListItem(_popularItems[index]);
+              //return _buildPopularListItem(_popularItems[index]);
             },
           ),
         ),
@@ -957,7 +947,7 @@ class _HomePageState extends State<HomePage> {
         ),
         const SizedBox(height: 16),
         Column(
-          children: _recommendedItems.map((item) => _buildFoodRow(item)).toList(),
+          //children: _recommendedItems.map((item) => _buildFoodRow(item)).toList(),
         ),
       ],
     );

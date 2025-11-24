@@ -11,8 +11,11 @@ import '../models/order.dart';
 // dashboard_screen.dart
 import '../models/commande.dart'; // Ajoutez cette ligne
 import 'package:collection/collection.dart';
+import 'supplements_management_screen.dart'; // <--- Ajouter cette ligne
 import 'dart:math' show min;
-// lib/pages/dashboard_screen.dart
+import 'dart:math'; // <--- AJOUTEZ CETTE LIGNE POUR UTILISER 'min'
+
+
 
 class DashboardColors {
   // ... vos autres constantes ...
@@ -45,6 +48,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<TableInfo> _filteredTables = [];
   bool _tablesLoading = true;
   String? _tablesError;
+
 
   List<Commande> _orders = []; // CHANGÉ : Utilisez Commande au lieu de Order
   bool _ordersLoading = true;
@@ -143,13 +147,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // lib/pages/dashboard_screen.dart
 
-// ... dans la fonction _showOrderDetails ...
-
-  // lib/pages/dashboard_screen.dart
-
-// ... dans la fonction _showOrderDetails ...
 
   void _showOrderDetails(BuildContext context, TableInfo table) {
     Color statusColor;
@@ -170,23 +168,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
         statusText = table.status;
     }
 
+    // Find the corresponding order for this table (if any)
     Commande? associatedOrder;
-    if (table.status.toLowerCase() == 'occupied' ||
-        table.status.toLowerCase() == 'occupée') {
-      associatedOrder = _orders.firstWhereOrNull((order) =>
-      order.tableNumber ==
-          table.number);
+    if (table.status.toLowerCase() == 'occupied' || table.status.toLowerCase() == 'occupée') {
+      associatedOrder = _orders.firstWhereOrNull(
+            (order) => order.tableNumber == table.number,
+      );
     }
-
-    // Calculate dynamic height for the dialog content
-    final itemsCount = associatedOrder?.items.length ?? 0;
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           backgroundColor: Colors.white,
           title: Text(
             'Table ${table.number}',
@@ -197,260 +191,318 @@ class _DashboardScreenState extends State<DashboardScreen> {
               color: DashboardColors.primaryText,
             ),
           ),
-          // ✅ WRAP THE CONTENT IN A SingleChildScrollView
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: statusColor, width: 1),
-                  ),
-                  child: Text(
-                    statusText,
-                    style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                      color: statusColor,
-                    ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: statusColor, width: 1),
+                ),
+                child: Text(
+                  statusText,
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: statusColor,
                   ),
                 ),
-                if (table.status.toLowerCase() == 'occupied' ||
-                    table.status.toLowerCase() == 'occupée')
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Notes du client :',
-                          style: TextStyle(
+              ),
+              // Show notes if available
+              if (table.status.toLowerCase() == 'occupied' || table.status.toLowerCase() == 'occupée')
+                Padding(
+                  padding: const EdgeInsets.only(top: 12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Notes du client :',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: DashboardColors.primaryText,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: SelectableText(
+                          table.notes ?? 'Aucune note spéciale',
+                          style: const TextStyle(
                             fontFamily: 'Poppins',
-                            fontWeight: FontWeight.w600,
                             fontSize: 14,
                             color: DashboardColors.primaryText,
                           ),
                         ),
+                      ),
+                    ],
+                  ),
+                ),
+              // Show elapsed time
+              if (table.status.toLowerCase() == 'occupied' || table.status.toLowerCase() == 'occupée')
+                Padding(
+                  padding: const EdgeInsets.only(top: 12.0),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.access_time, size: 16, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Temps : ${_timeElapsed(DateTime.tryParse(table.timeOccupied ?? ''))}',
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 13,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 16),
+              // Show order details if associated order exists
+              if (associatedOrder != null) ...[
+                const Text(
+                  'Détails de la commande :',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                    color: DashboardColors.primaryText,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Client: ${associatedOrder.clientName}',
+                  style: const TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 16,
+                    color: DashboardColors.primaryText,
+                  ),
+                ),
+                // Affichage détaillé des articles avec leurs suppléments
+                ...associatedOrder.items.map((itemMap) {
+                  // Accéder aux données via les clés du Map
+                  final String itemName = itemMap['food_name'] as String? ?? 'Nom inconnu';
+                  final int itemQuantity = itemMap['quantity'] as int? ?? 1;
+                  final List<dynamic>? supplementsDynamic = itemMap['supplements'] as List<dynamic>?;
+
+                  // Convertir la liste de suppléments dynamique en List<String>
+                  final List<String> supplements = supplementsDynamic
+                      ?.map((s) => s as String)
+                      .toList() ?? <String>[];
+
+                  // Calcule le prix total des suppléments pour cet item
+                  double supplementsTotal = 0.0;
+                  for (String supplement in supplements) {
+                    final priceMatch = RegExp(r'\+([\d,]+(?:\.\d+)?)\s*DT').firstMatch(supplement);
+                    if (priceMatch != null) {
+                      final priceString = priceMatch.group(1)!.replaceAll(',', '');
+                      supplementsTotal += double.tryParse(priceString) ?? 0.0;
+                    }
+                  }
+
+                  final double basePrice = (itemMap['price'] as num).toDouble() - supplementsTotal;
+
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Nom de l'article et quantité
+                      Text(
+                        '${itemName} (x$itemQuantity)',
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: DashboardColors.primaryText,
+                        ),
+                      ),
+                      // Prix de base du plat
+                      Text(
+                        'Prix de base: ${basePrice.toStringAsFixed(2)} DT',
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                      ),
+
+                      // Liste des suppléments
+                      if (supplements.isNotEmpty) ...[
                         const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(8),
+                        const Text(
+                          'Suppléments:',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                            color: DashboardColors.primaryText,
                           ),
-                          child: SelectableText(
-                            table.notes ?? 'Aucune note spéciale',
+                        ),
+                        ...supplements.map((supplement) {
+                          return Text(
+                            '  - $supplement',
                             style: const TextStyle(
                               fontFamily: 'Poppins',
                               fontSize: 14,
                               color: DashboardColors.primaryText,
                             ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (table.status.toLowerCase() == 'occupied' ||
-                    table.status.toLowerCase() == 'occupée')
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12.0),
-                    child: Row(
-                      children: [
-                        const Icon(
-                            Icons.access_time, size: 16, color: Colors.grey),
-                        const SizedBox(width: 4),
+                          );
+                        }),
+                        // Prix total des suppléments pour cet article
                         Text(
-                          'Temps : ${_timeElapsed(DateTime.tryParse(
-                              table.timeOccupied ?? ''))}',
+                          'Total suppléments: ${supplementsTotal.toStringAsFixed(2)} DT',
                           style: const TextStyle(
                             fontFamily: 'Poppins',
-                            fontSize: 13,
-                            color: Colors.grey,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: DashboardColors.statusOccupied, // Couleur pour les suppléments
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                const SizedBox(height: 16),
-                if (associatedOrder != null) ...[
-                  const Text(
-                    'Détails de la commande :',
-                    style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                      color: DashboardColors.primaryText,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Client: ${associatedOrder.clientName}',
-                    style: const TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 16,
-                      color: DashboardColors.primaryText,
-                    ),
-                  ),
-                  Text(
-                    'Total: ${associatedOrder.totalPrice.toStringAsFixed(
-                        2)} DT',
-                    style: const TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 16,
-                      color: DashboardColors.primaryText,
-                    ),
-                  ),
-                  Text(
-                    'Notes: ${associatedOrder.notes}',
-                    style: const TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 16,
-                      color: DashboardColors.primaryText,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(
-                        associatedOrder.getStatusIcon(),
-                        color: associatedOrder.getStatusColor(),
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Statut: ${associatedOrder.getStatusText()}',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 14,
-                          color: associatedOrder.getStatusColor(),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      const SizedBox(height: 8),
                     ],
+                  );
+                }),
+                // Prix total de la commande
+                Text(
+                  'Total: ${associatedOrder.totalPrice.toStringAsFixed(2)} DT',
+                  style: const TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: DashboardColors.primaryText,
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Articles :',
-                    style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                      color: DashboardColors.primaryText,
+                ),
+                const SizedBox(height: 16),
+                // Boutons pour modifier le statut de la commande
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _updateOrderStatus(associatedOrder!.id, 'in_progress'),
+                        icon: const Icon(Icons.access_time, color: Colors.white),
+                        label: const Text('En Cours'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          elevation: 4,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  // ✅ Affichage des articles SANS ListView.builder
-                  ...List.generate(
-                    associatedOrder.items.length,
-                        (index) {
-                      final item = associatedOrder!.items[index];
-                      return ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 0, vertical: 4),
-                        leading: Text('${index + 1}.'),
-                        title: Text(item['food_name'] as String),
-                        subtitle: Text('Quantité: ${item['quantity']}'),
-                        trailing: Text('${item['price'].toStringAsFixed(
-                            2)} DT'),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  // ✅ BOUTONS
-                  (() {
-                    final Commande order = associatedOrder!;
-                    return Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () =>
-                                _updateOrderStatus(order.id, 'in_progress'),
-                            icon: const Icon(
-                                Icons.access_time, color: Colors.white),
-                            label: const Text('En Cours'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16)),
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () =>
-                                _updateOrderStatus(order.id, 'done'),
-                            icon: const Icon(
-                                Icons.check_circle, color: Colors.white),
-                            label: const Text('Terminée'),
-                            style: ElevatedButton.styleFrom(
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        // Le responsable ne libère PAS la table ici.
+                        // Il se contente de marquer la commande comme "done".
+                        onPressed: () {
+                          _updateOrderStatus(associatedOrder!.id, 'done');
+                          Navigator.of(context).pop(); // Fermer la boîte de dialogue
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text('Commande marquée comme terminée.'),
                               backgroundColor: Colors.green,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16)),
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
                             ),
-                          ),
+                          );
+                        },
+                        icon: const Icon(Icons.check_circle, color: Colors.white),
+                        label: const Text('Terminée'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          elevation: 4,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
-                      ],
-                    );
-                  }()),
-                ] else
-                  ...[
-                    const Text(
-                      'Aucune commande associée à cette table.',
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: 16,
-                        color: DashboardColors.primaryText,
                       ),
                     ),
                   ],
+                ),
+              ] else ...[
+                const Text(
+                  'Aucune commande associée à cette table.',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 16,
+                    color: DashboardColors.primaryText,
+                  ),
+                ),
+              ],
+              // Optionnel : Ajouter un bouton "Marquer comme Libre" avec vérification
+              if (table.status.toLowerCase() == 'occupied' || table.status.toLowerCase() == 'occupée') ...[
                 const SizedBox(height: 20),
-                if (table.status.toLowerCase() == 'occupied' ||
-                    table.status.toLowerCase() == 'occupée')
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      // Vérifier si la commande est déjà "done"
+                      if (associatedOrder?.status != 'done') {
+                        // Demander confirmation
+                        showDialog(
+                          context: context,
+                          builder: (ctx) {
+                            return AlertDialog(
+                              title: const Text('Libérer la table ?'),
+                              content: const Text('La commande n\'est pas encore marquée comme terminée. Êtes-vous sûr de vouloir libérer la table ?'),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+                                TextButton(
+                                  onPressed: () {
+                                    _markTableAsAvailable(table.number);
+                                    Navigator.pop(ctx);
+                                    Navigator.of(context).pop(); // Fermer la boîte de dialogue principale
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        backgroundColor: DashboardColors.statusAvailable,
+                                        content: Text('Table ${table.number} libérée manuellement.'),
+                                      ),
+                                    );
+                                  },
+                                  child: const Text('Libérer'),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                      } else {
+                        // Libérer la table sans confirmation
                         _markTableAsAvailable(table.number);
                         Navigator.of(context).pop();
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             backgroundColor: DashboardColors.statusAvailable,
-                            content: Text(
-                                'Table ${table.number} libérée avec succès !'),
+                            content: Text('Table ${table.number} libérée avec succès !'),
                           ),
                         );
-                      },
-                      icon: const Icon(Icons.check_circle, color: Colors.white),
-                      label: const Text(
-                        'Marquer comme Libre',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: DashboardColors.statusAvailable,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16)),
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      }
+                    },
+                    icon: const Icon(Icons.check_circle, color: Colors.white),
+                    label: const Text(
+                      'Marquer comme Libre',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: DashboardColors.statusAvailable,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 4,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
                   ),
+                ),
               ],
-            ),
+            ],
           ),
           actions: [
             TextButton(
@@ -469,7 +521,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       },
     );
   }
-  //  TABLES LAYOUT VIEW
+
 
 // dashboard_screen.dart
   Widget _buildTablesLayoutView(BuildContext context) {
@@ -761,7 +813,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.all(16.0),
       itemCount: _orders.length,
       itemBuilder: (context, index) {
-        final order = _orders[index]; // 👈 CHANGER ICI : Utilisez Commande
+        final Commande order = _orders[index]; // 👈 CORRECT : Utilisez Commande
         return Card(
           color: Colors.white,
           elevation: 4,
@@ -771,27 +823,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
             leading: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: order.getStatusColor().withOpacity(0.15), // 👈 CHANGER ICI
+                color: order.getStatusColor().withOpacity(0.15),
                 shape: BoxShape.circle,
               ),
-              child: Icon(order.getStatusIcon(), color: order.getStatusColor(), size: 24), // 👈 CHANGER ICI
+              child: Icon(order.getStatusIcon(), color: order.getStatusColor(), size: 24),
             ),
             title: Text(
-              'Commande #${order.id.substring(0, min(6, order.id.length))}', // 👈 CHANGER ICI
+              'Commande #${order.id.substring(0, min(6, order.id.length))}', // 👈 CORRECT : 'min' est maintenant disponible
               style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 16),
             ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Statut: ${order.getStatusText()}', // 👈 CHANGER ICI
-                  style: TextStyle(color: order.getStatusColor(), fontWeight: FontWeight.w600, fontSize: 14), // 👈 CHANGER ICI
+                  'Statut: ${order.getStatusText()}',
+                  style: TextStyle(color: order.getStatusColor(), fontWeight: FontWeight.w600, fontSize: 14),
                 ),
-                Text('Table ${order.tableNumber}', style: const TextStyle(color: Colors.grey, fontSize: 12)), // 👈 CHANGER ICI
+                Text('Table ${order.tableNumber}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
               ],
             ),
             trailing: Text(
-              '${order.totalPrice.toStringAsFixed(2)} DT', // 👈 CHANGER ICI
+              '${order.totalPrice.toStringAsFixed(2)} DT',
               style: const TextStyle(
                 fontFamily: 'Poppins',
                 fontWeight: FontWeight.bold,
@@ -800,7 +852,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
             onTap: () {
-              final table = _tablesMap[order.tableNumber]; // 👈 CHANGER ICI
+              final table = _tablesMap[order.tableNumber];
               if (table != null) {
                 _showOrderDetails(context, table);
               } else {
@@ -869,7 +921,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
 
-  // FONCTION POUR CHARGER LES TABLES DEPUIS L'API
   // FONCTION POUR CHARGER LES DONNÉES DES TABLES DEPUIS L'API ET CRÉER UNE MAP COMPLÈTE
   Future<void> _loadTables() async {
     if (!mounted) return; // Vérifier si le widget est encore monté
@@ -934,23 +985,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // Function to load orders
-
-// dashboard_screen.dart
-// Function to load orders WITH ITEMS
+// Function to load orders
   Future<void> _loadOrders() async {
     if (!mounted) return;
     setState(() {
       _ordersLoading = true;
       _ordersError = null;
     });
+
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.56.1:8082/commandes_with_items'), // 👈 CHANGER ICI : Utilisez /commandes_with_items
+        Uri.parse('http://192.168.56.1:8082/commandes'), // URL for all orders
       );
+
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        final loadedOrders = data.map((json) => Commande.fromJson(json)).toList();
+        // CHANGEMENT : Utiliser Commande.fromJson
+        final loadedOrders = data.map((json) => Commande.fromJson(json)).toList(); // <--- CHANGÉ ICI
         if (mounted) {
           setState(() {
             _orders = loadedOrders;
@@ -974,7 +1025,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     }
   }
-// dashboard_screen.dart
+
+
   // dashboard_screen.dart
   Future<void> _updateOrderStatus(String orderId, String newStatus) async {
     try {
@@ -1079,7 +1131,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final supabase = Supabase.instance.client;
 
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Scaffold(
         backgroundColor: DashboardColors.background,
         appBar: AppBar(
@@ -1121,6 +1173,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const Tab(icon: Icon(Icons.receipt_long), text: 'Commandes'),
               const Tab(icon: Icon(Icons.show_chart), text: 'Statistiques'),
               const Tab(icon: Icon(Icons.menu_book), text: 'Menu'),
+              const Tab(icon: Icon(Icons.fastfood), text: 'Suppléments'), // <--- Ajouter cet onglet
             ],
           ),
         ),
@@ -1130,6 +1183,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _buildRealtimeOrdersView(context),
             _buildStatisticsView(context),
             const MenuManagementScreen(),
+            const SupplementsManagementScreen(), // <--- Ajouter cet écran
           ],
         ),
       ),

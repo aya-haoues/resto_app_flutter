@@ -128,7 +128,7 @@ class _CommandesPageState extends State<CommandesPage> {
   }
 
   double get _total {
-    return _localPanier.fold(0, (sum, item) => sum + item.price);
+    return _localPanier.fold(0, (sum, item) => sum + item.totalPriceWithSupplements);
   }
 
   @override
@@ -145,6 +145,22 @@ class _CommandesPageState extends State<CommandesPage> {
           _buildHeaderInfo(),
           Expanded(child: _buildCartItems()),
           _buildBottomPanel(),
+          // --- BOUTON POUR LE CLIENT : LIBÉRER LA TABLE ---
+          if (widget.orderId != null && widget.tableNumber != null && _isDisplayingExistingOrder && (widget.orderStatus?.toLowerCase() == 'done'))
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: ElevatedButton.icon(
+                onPressed: _markTableAsFree,
+                icon: const Icon(Icons.check_circle, color: Colors.white),
+                label: const Text('Marquer la table comme libre', style: TextStyle(color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 4,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -194,11 +210,7 @@ class _CommandesPageState extends State<CommandesPage> {
               final item = items[index];
               final imageUrl = item['food_name'].toString().toLowerCase().contains('bol')
                   ? 'https://via.placeholder.com/80x100.png?text=Bol'
-                  : 'https://via.placeholder.com/80x100.png?text=Plat'; // Remplacez ceci par l'URL réelle de votre image depuis la base de données
-
-              // Pour utiliser l'image depuis la base de données, vous devez avoir un champ comme 'image_url'.
-              // Par exemple, si votre modèle a un champ 'image_path', utilisez :
-              // final imageUrl = 'http://192.168.56.1:8082/assets/images/${item['image_path']}';
+                  : 'https://via.placeholder.com/80x100.png?text=Plat';
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
@@ -225,7 +237,7 @@ class _CommandesPageState extends State<CommandesPage> {
                           bottomLeft: Radius.circular(16),
                         ),
                         image: DecorationImage(
-                          image: NetworkImage(imageUrl), // Utilisez NetworkImage pour les URLs
+                          image: NetworkImage(imageUrl),
                           fit: BoxFit.cover,
                         ),
                       ),
@@ -254,6 +266,17 @@ class _CommandesPageState extends State<CommandesPage> {
                                 fontSize: 12,
                               ),
                             ),
+                            // Afficher les suppléments s'ils existent
+                            if ((item['supplements'] as List<dynamic>?)?.isNotEmpty == true) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                'Suppléments: ${item['supplements'].join(', ')}',
+                                style: TextStyle(
+                                  color: _primaryColor,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 8),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -361,7 +384,7 @@ class _CommandesPageState extends State<CommandesPage> {
           _buildPriceRow("Total à payer", total, isTotal: true),
           const SizedBox(height: 20),
           Text(
-            "Votre commande est en cours de préparation.",
+            "Votre commande ${status == 'done' ? 'est terminée' : 'est en cours de préparation'}.",
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -531,6 +554,223 @@ class _CommandesPageState extends State<CommandesPage> {
     );
   }
 
+  // --- FONCTION AJOUTÉE : Afficher les suppléments pour un article ---
+  Widget _buildSupplementsSection(FoodItem item) {
+    if (item.supplements.isEmpty) {
+      return Text(
+        "Aucun supplément",
+        style: TextStyle(color: _textSecondary, fontSize: 12),
+      );
+    }
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: item.supplements.map((supplement) {
+        return Chip(
+          label: Text(supplement, style: TextStyle(fontSize: 12)),
+          backgroundColor: _primaryColor.withOpacity(0.1),
+          labelStyle: TextStyle(color: _primaryColor),
+          deleteIcon: Icon(Icons.cancel, size: 14, color: _primaryColor),
+          onDeleted: () {
+            _removeSupplement(item, supplement);
+          },
+        );
+      }).toList(),
+    );
+  }
+
+  // --- FONCTION AJOUTÉE : Supprimer un supplément ---
+  void _removeSupplement(FoodItem item, String supplement) {
+    final updatedSupplements = List<String>.from(item.supplements)..remove(supplement);
+    final updatedItem = item.copyWith(supplements: updatedSupplements);
+    setState(() {
+      final index = _localPanier.indexOf(item);
+      if (index != -1) {
+        _localPanier[index] = updatedItem;
+      }
+    });
+  }
+
+  // --- FONCTION AJOUTÉE : Modifier les suppléments ---
+  void _modifySupplements(FoodItem item) async {
+    final controller = TextEditingController();
+    List<Map<String, dynamic>> availableSupplements = [];
+
+    // Charger la liste des suppléments depuis l'API
+    try {
+      final response = await http.get(Uri.parse('http://192.168.56.1:8082/supplements'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        availableSupplements = data.cast<Map<String, dynamic>>();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur de chargement des suppléments'), backgroundColor: Colors.red),
+        );
+      }
+    }
+
+    final selectedSupplements = List<String>.from(item.supplements);
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text('Suppléments pour ${item.name}'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Afficher le prix de base du plat
+                    Text(
+                      'Prix de base: ${item.price.toStringAsFixed(2)} DT',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Liste déroulante pour les suppléments prédéfinis
+                    DropdownButtonFormField<Map<String, dynamic>>(
+                      decoration: InputDecoration(
+                        labelText: 'Choisir un supplément',
+                        border: OutlineInputBorder(),
+                      ),
+                      value: null,
+                      items: availableSupplements.map((supplement) {
+                        final displayText = '${supplement['name']} (+${(supplement['price'] as num).toStringAsFixed(3)} DT)';
+                        return DropdownMenuItem(
+                          value: supplement,
+                          child: Text(displayText),
+                        );
+                      }).toList(),
+                      onChanged: (Map<String, dynamic>? newValue) {
+                        if (newValue != null) {
+                          final formattedSupplement = '${newValue['name']} (+${(newValue['price'] as num).toStringAsFixed(3)} DT)';
+                          if (!selectedSupplements.contains(formattedSupplement)) {
+                            setState(() {
+                              selectedSupplements.add(formattedSupplement);
+                            });
+                          }
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    // Champ de texte pour un supplément personnalisé
+                    TextField(
+                      controller: controller,
+                      decoration: const InputDecoration(
+                        labelText: 'Supplément personnalisé',
+                        hintText: 'Ex: Double portion de frites',
+                        border: OutlineInputBorder(),
+                      ),
+                      onSubmitted: (value) {
+                        if (value.isNotEmpty && !selectedSupplements.contains(value)) {
+                          setState(() {
+                            selectedSupplements.add(value);
+                            controller.clear();
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    // Liste des suppléments sélectionnés
+                    if (selectedSupplements.isNotEmpty) ...[
+                      const Text('Suppléments sélectionnés:'),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: selectedSupplements.map((supplement) {
+                          return Chip(
+                            label: Text(supplement),
+                            backgroundColor: Colors.grey.shade200,
+                            onDeleted: () {
+                              setState(() {
+                                selectedSupplements.remove(supplement);
+                              });
+                            },
+                            deleteIcon: const Icon(Icons.cancel, size: 14),
+                          );
+                        }).toList(),
+                      ),
+                      // Prix total des suppléments sélectionnés
+                      Text(
+                        'Total suppléments: ${selectedSupplements.fold(0.0, (sum, sup) {
+                          final match = RegExp(r'\+([\d,]+(?:\.\d+)?)\s*DT').firstMatch(sup);
+                          if (match != null) {
+                            final priceString = match.group(1)!.replaceAll(',', '');
+                            return sum + (double.tryParse(priceString) ?? 0.0);
+                          }
+                          return sum;
+                        }).toStringAsFixed(2)} DT',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Annuler'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final updatedItem = item.copyWith(supplements: selectedSupplements);
+                    setState(() {
+                      final index = _localPanier.indexOf(item);
+                      if (index != -1) {
+                        _localPanier[index] = updatedItem;
+                      }
+                    });
+
+                    // Enregistrer les modifications dans la base de données
+                    try {
+                      final response = await http.put(
+                        Uri.parse('http://192.168.56.1:8082/menu/${item.id}'),
+                        headers: {'Content-Type': 'application/json'},
+                        body: jsonEncode({
+                          'supplements': selectedSupplements,
+                        }),
+                      );
+
+                      if (response.statusCode == 200) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Suppléments sauvegardés'), backgroundColor: Colors.green),
+                        );
+                      } else {
+                        final errorBody = jsonDecode(response.body);
+                        final errorMsg = errorBody['error'] ?? 'Erreur inconnue';
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Erreur lors de la sauvegarde: $errorMsg'), backgroundColor: Colors.red),
+                        );
+                      }
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Erreur réseau: $e'), backgroundColor: Colors.red),
+                      );
+                    }
+
+                    Navigator.of(ctx).pop();
+                  },
+                  child: const Text('Sauvegarder'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildCartItem(FoodItem item) {
     return Container(
       margin: EdgeInsets.only(bottom: 12),
@@ -545,78 +785,95 @@ class _CommandesPageState extends State<CommandesPage> {
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 80,
-            height: 100,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(16),
-                bottomLeft: Radius.circular(16),
-              ),
-              image: DecorationImage(
-                image: AssetImage(item.imagePath),
-                fit: BoxFit.cover,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.name,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: _textPrimary,
+      child: Padding(
+        padding: EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                // Image du plat
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    image: DecorationImage(
+                      image: AssetImage(item.imagePath),
+                      fit: BoxFit.cover,
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                  SizedBox(height: 4),
-                  Text(
-                    item.description,
-                    style: TextStyle(
-                      color: _textSecondary,
-                      fontSize: 12,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "${item.price.toStringAsFixed(2)} DT",
+                        item.name,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: _textPrimary,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        item.description,
+                        style: TextStyle(
+                          color: _textSecondary,
+                          fontSize: 12,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "${item.totalPriceWithSupplements.toStringAsFixed(2)} DT",
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: _primaryColor,
                         ),
                       ),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: _errorColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: IconButton(
-                          icon: Icon(Icons.delete_outline, color: _errorColor, size: 20),
-                          onPressed: () => _removeItem(item),
-                          padding: EdgeInsets.all(4),
-                        ),
-                      ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                // Bouton de suppression
+                Container(
+                  decoration: BoxDecoration(
+                    color: _errorColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: IconButton(
+                    icon: Icon(Icons.delete_outline, color: _errorColor, size: 20),
+                    onPressed: () => _removeItem(item),
+                    padding: EdgeInsets.all(4),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+            // Section des suppléments
+            Row(
+              children: [
+                Text(
+                  "Suppléments:",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: _textPrimary),
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: _buildSupplementsSection(item)),
+                IconButton(
+                  icon: Icon(Icons.edit, color: _primaryColor, size: 20),
+                  onPressed: () => _modifySupplements(item),
+                  tooltip: 'Modifier les suppléments',
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -725,8 +982,9 @@ class _CommandesPageState extends State<CommandesPage> {
       "client_id": widget.clientName,
       "items": _localPanier.map((item) => {
         "name": item.name,
-        "price": item.price,
+        "price": item.totalPriceWithSupplements, // Prix total avec suppléments
         "quantity": item.quantity ?? 1,
+        "supplements": item.supplements,
       }).toList(),
     };
 
@@ -749,6 +1007,37 @@ class _CommandesPageState extends State<CommandesPage> {
       _showErrorDialog("Impossible d’envoyer la commande. Vérifiez la connexion au backend.");
     } finally {
       setState(() => _isSubmitting = false);
+    }
+  }
+
+  // --- BOUTON POUR LE CLIENT : LIBÉRER LA TABLE ---
+  Future<void> _markTableAsFree() async {
+    try {
+      final response = await http.put(
+        Uri.parse('http://192.168.56.1:8082/tables/${widget.tableNumber}'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'status': 'free',
+          'notes': null,
+          'time_occupied': null,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Table libérée avec succès !'), backgroundColor: Colors.green),
+        );
+        Navigator.pushReplacementNamed(context, '/');
+      } else {
+        final errorMsg = jsonDecode(response.body)['error'] ?? 'Erreur inconnue';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $errorMsg'), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur réseau: $e'), backgroundColor: Colors.red),
+      );
     }
   }
 
