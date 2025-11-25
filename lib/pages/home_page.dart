@@ -248,7 +248,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final List<Widget> pages = [
       _buildHomeContent(),
-      MenuPage(onAddToOrder: _addToCart),
+      MenuPage(onAddToOrder: _addToCart, initialCategory: '',),
       // Use the new logic to decide what to show on the Commandes page
       if (_clientName != null && _tableNumber != null && _notes != null)
         CommandesPage(

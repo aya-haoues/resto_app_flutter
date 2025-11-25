@@ -12,7 +12,7 @@ const Color _textSecondary = Color(0xFF64748B);  // Gris secondaire
 
 class MenuPage extends StatelessWidget {
   final Function(FoodItem) onAddToOrder;
-  const MenuPage({Key? key, required this.onAddToOrder}) : super(key: key);
+  const MenuPage({Key? key, required this.onAddToOrder, required String initialCategory}) : super(key: key);
 
   // 🔹 URL de l'API Hono (même que le responsable)
   final String _baseUrl = 'http://192.168.43.8:8082/menu';
