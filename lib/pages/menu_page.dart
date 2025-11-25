@@ -15,8 +15,8 @@ class MenuPage extends StatelessWidget {
   const MenuPage({Key? key, required this.onAddToOrder}) : super(key: key);
 
   // 🔹 URL de l'API Hono (même que le responsable)
-  final String _baseUrl = 'http://192.168.56.1:8082/menu';
-  final String _categoriesUrl = 'http://192.168.56.1:8082/categories'; // <--- AJOUTER CETTE URL
+  final String _baseUrl = 'http://192.168.43.8:8082/menu';
+  final String _categoriesUrl = 'http://192.168.43.8:8082/categories'; // <--- AJOUTER CETTE URL
 
 
   Future<List<FoodItem>> _fetchMenu() async {

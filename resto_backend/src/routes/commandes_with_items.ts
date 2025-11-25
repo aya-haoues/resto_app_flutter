@@ -15,6 +15,7 @@ commandesWithItemsRoute.get('/', async (c) => {
           food_name,
           price,
           quantity,
+          image_path,
           supplements
         )
       `)

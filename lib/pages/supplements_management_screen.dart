@@ -14,7 +14,7 @@ class SupplementsManagementScreen extends StatefulWidget {
 
 class _SupplementsManagementScreenState
     extends State<SupplementsManagementScreen> {
-  final String _supplementsUrl = 'http://192.168.56.1:8082/supplements';
+  final String _supplementsUrl = 'http://192.168.43.8:8082/supplements';
   List<Supplement> _supplements = [];
   bool _isLoading = true;
   String? _error;
@@ -150,8 +150,16 @@ class _SupplementsManagementScreenState
           final supplement = _supplements[index];
           return Card(
             child: ListTile(
-              title: Text(supplement.name),
-              subtitle: Text('${supplement.price.toStringAsFixed(3)} DT'),
+              title: Text(
+                supplement.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(
+                '${supplement.price.toStringAsFixed(2)} DT',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -185,19 +193,21 @@ class _SupplementsManagementScreenState
       builder: (context) {
         return AlertDialog(
           title: const Text('Nouveau Supplément'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Nom'),
-              ),
-              TextField(
-                controller: priceController,
-                decoration: const InputDecoration(labelText: 'Prix (DT)'),
-                keyboardType: TextInputType.number,
-              ),
-            ],
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Nom'),
+                ),
+                TextField(
+                  controller: priceController,
+                  decoration: const InputDecoration(labelText: 'Prix (DT)'),
+                  keyboardType: TextInputType.number,
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -206,8 +216,10 @@ class _SupplementsManagementScreenState
             ),
             ElevatedButton(
               onPressed: () {
-                final name = nameController.text;
-                final price = double.tryParse(priceController.text) ?? 0.0;
+                final name = nameController.text.trim();
+                final priceText = priceController.text.trim();
+                if (name.isEmpty || priceText.isEmpty) return;
+                final price = double.tryParse(priceText) ?? 0.0;
                 if (name.isNotEmpty && price > 0) {
                   Navigator.of(context).pop();
                   _createSupplement(name, price);
@@ -223,26 +235,30 @@ class _SupplementsManagementScreenState
 
   void _showEditDialog(Supplement supplement) {
     final nameController = TextEditingController(text: supplement.name);
-    final priceController = TextEditingController(text: supplement.price.toString());
+    final priceController = TextEditingController(
+      text: supplement.price.toStringAsFixed(2),
+    );
 
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: const Text('Modifier le Supplément'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Nom'),
-              ),
-              TextField(
-                controller: priceController,
-                decoration: const InputDecoration(labelText: 'Prix (DT)'),
-                keyboardType: TextInputType.number,
-              ),
-            ],
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Nom'),
+                ),
+                TextField(
+                  controller: priceController,
+                  decoration: const InputDecoration(labelText: 'Prix (DT)'),
+                  keyboardType: TextInputType.number,
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -251,8 +267,10 @@ class _SupplementsManagementScreenState
             ),
             ElevatedButton(
               onPressed: () {
-                final name = nameController.text;
-                final price = double.tryParse(priceController.text) ?? 0.0;
+                final name = nameController.text.trim();
+                final priceText = priceController.text.trim();
+                if (name.isEmpty || priceText.isEmpty) return;
+                final price = double.tryParse(priceText) ?? 0.0;
                 if (name.isNotEmpty && price >= 0) {
                   Navigator.of(context).pop();
                   _updateSupplement(supplement.id, name, price);

@@ -79,7 +79,7 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.56.1:8082/categories'), // URL de votre API
+        Uri.parse('http://192.168.43.8:8082/categories'), // URL de votre API
       );
 
       if (response.statusCode == 200) {
@@ -121,7 +121,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _checkForExistingOrder(String clientName, int tableNumber) async {
     final url = Uri.parse(
-        'http://192.168.56.1:8082/client-order?client_name=$clientName&table_number=$tableNumber');
+        'http://192.168.43.8:8082/client-order?client_name=$clientName&table_number=$tableNumber');
 
     try {
       final response = await http.get(url);

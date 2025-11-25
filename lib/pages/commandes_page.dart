@@ -63,7 +63,7 @@ class _CommandesPageState extends State<CommandesPage> {
     try {
       // UTILISER LA BONNE ROUTE: /commandes_with_items
       final response = await http.get(
-        Uri.parse('http://192.168.56.1:8082/commandes_with_items'),
+        Uri.parse('http://192.168.43.8:8082/commandes_with_items'),
       );
 
       if (response.statusCode == 200) {
@@ -169,14 +169,12 @@ class _CommandesPageState extends State<CommandesPage> {
   // --- VUE POUR UNE COMMANDE EXISTANTE ---
   Widget _buildExistingOrderView() {
     if (_isLoading) {
-      // Afficher un indicateur de chargement pendant que les données sont récupérées
       return Center(
         child: CircularProgressIndicator(color: _primaryColor),
       );
     }
 
     if (_existingOrderData == null) {
-      // Afficher un message d'erreur si les données ne sont pas disponibles
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -208,9 +206,11 @@ class _CommandesPageState extends State<CommandesPage> {
             itemCount: items.length,
             itemBuilder: (context, index) {
               final item = items[index];
-              final imageUrl = item['food_name'].toString().toLowerCase().contains('bol')
-                  ? 'https://via.placeholder.com/80x100.png?text=Bol'
-                  : 'https://via.placeholder.com/80x100.png?text=Plat';
+              // ✅ Use image_path from the backend
+              final imagePath = item['image_path'] as String?;
+              final imageUrl = imagePath != null
+                  ? 'assets/images/$imagePath'
+                  : 'assets/images/placeholder.jpg';
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
@@ -237,7 +237,7 @@ class _CommandesPageState extends State<CommandesPage> {
                           bottomLeft: Radius.circular(16),
                         ),
                         image: DecorationImage(
-                          image: NetworkImage(imageUrl),
+                          image: AssetImage(imageUrl), // ✅ Use AssetImage for local assets
                           fit: BoxFit.cover,
                         ),
                       ),
@@ -266,7 +266,7 @@ class _CommandesPageState extends State<CommandesPage> {
                                 fontSize: 12,
                               ),
                             ),
-                            // Afficher les suppléments s'ils existent
+                            // Show supplements if they exist
                             if ((item['supplements'] as List<dynamic>?)?.isNotEmpty == true) ...[
                               const SizedBox(height: 4),
                               Text(
@@ -275,6 +275,8 @@ class _CommandesPageState extends State<CommandesPage> {
                                   color: _primaryColor,
                                   fontSize: 12,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ],
                             const SizedBox(height: 8),
@@ -567,7 +569,12 @@ class _CommandesPageState extends State<CommandesPage> {
       runSpacing: 4,
       children: item.supplements.map((supplement) {
         return Chip(
-          label: Text(supplement, style: TextStyle(fontSize: 12)),
+          label: Text(
+            supplement,
+            style: TextStyle(fontSize: 12),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
           backgroundColor: _primaryColor.withOpacity(0.1),
           labelStyle: TextStyle(color: _primaryColor),
           deleteIcon: Icon(Icons.cancel, size: 14, color: _primaryColor),
@@ -598,7 +605,7 @@ class _CommandesPageState extends State<CommandesPage> {
 
     // Charger la liste des suppléments depuis l'API
     try {
-      final response = await http.get(Uri.parse('http://192.168.56.1:8082/supplements'));
+      final response = await http.get(Uri.parse('http://192.168.43.8:8082/supplements'));
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         availableSupplements = data.cast<Map<String, dynamic>>();
@@ -735,7 +742,7 @@ class _CommandesPageState extends State<CommandesPage> {
                     // Enregistrer les modifications dans la base de données
                     try {
                       final response = await http.put(
-                        Uri.parse('http://192.168.56.1:8082/menu/${item.id}'),
+                        Uri.parse('http://192.168.43.8:8082/menu/${item.id}'),
                         headers: {'Content-Type': 'application/json'},
                         body: jsonEncode({
                           'supplements': selectedSupplements,
@@ -972,7 +979,7 @@ class _CommandesPageState extends State<CommandesPage> {
       return;
     }
     setState(() => _isSubmitting = true);
-    final String backendUrl = dotenv.env['BACKEND_URL'] ?? 'http://192.168.56.1:8082/commandes';
+    final String backendUrl = dotenv.env['BACKEND_URL'] ?? 'http://192.168.43.8:8082/commandes';
     final Uri url = Uri.parse(backendUrl);
     final body = {
       "client_name": widget.clientName,
@@ -984,6 +991,7 @@ class _CommandesPageState extends State<CommandesPage> {
         "name": item.name,
         "price": item.totalPriceWithSupplements, // Prix total avec suppléments
         "quantity": item.quantity ?? 1,
+        "image_path": item.imagePath.split('/').last,
         "supplements": item.supplements,
       }).toList(),
     };
@@ -1014,7 +1022,7 @@ class _CommandesPageState extends State<CommandesPage> {
   Future<void> _markTableAsFree() async {
     try {
       final response = await http.put(
-        Uri.parse('http://192.168.56.1:8082/tables/${widget.tableNumber}'),
+        Uri.parse('http://192.168.43.8:8082/tables/${widget.tableNumber}'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'status': 'free',

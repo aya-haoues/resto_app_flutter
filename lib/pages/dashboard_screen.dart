@@ -70,64 +70,60 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // Mise à jour de _calculateStatusCounts pour utiliser le nouveau modèle TableInfo
   Map<String, int> _calculateStatusCounts() {
     final counts = <String, int>{
-      'available': 0, // Utiliser la chaîne 'available'
-      'occupied': 0,  // Utiliser la chaîne 'occupied'
+      'available': 0,
+      'occupied': 0,
     };
-    // Parcourir la Map complète
     for (final tableInfo in _tablesMap.values) {
       final lowerCaseStatus = tableInfo.status.toLowerCase();
-      if (lowerCaseStatus == 'available' || lowerCaseStatus == 'libre') {
+      if (lowerCaseStatus == 'available' ||
+          lowerCaseStatus == 'libre' ||
+          lowerCaseStatus == 'free') { // 👈 ADD THIS
         counts['available'] = (counts['available'] ?? 0) + 1;
       } else if (lowerCaseStatus == 'occupied' || lowerCaseStatus == 'occupée') {
         counts['occupied'] = (counts['occupied'] ?? 0) + 1;
       }
-      // Les statuts non gérés ici ne sont pas comptés (ex: 'reserved' si non supprimé du backend)
     }
     return counts;
   }
-
   // CARD
   Widget _buildSummaryCard(String title, int count, Color color) {
-    return Expanded(
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+    return Container( // ✅ Use Container instead of Expanded
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Text(
+            count.toString(),
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: color,
             ),
-          ],
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Text(
-              count.toString(),
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 12,
+              color: DashboardColors.primaryText.withOpacity(0.7),
             ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 12,
-                color: DashboardColors.primaryText.withOpacity(0.7),
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
@@ -138,10 +134,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Padding(
       padding: const EdgeInsets.only(top: 16.0, left: 16.0, right: 16.0, bottom: 12.0),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly, // 👈 Add this
         children: [
-          _buildSummaryCard('Libres', counts['available'] ?? 0, DashboardColors.statusAvailable), // Utiliser 'available'
-          const SizedBox(width: 12),
-          _buildSummaryCard('Occupées', counts['occupied'] ?? 0, DashboardColors.statusOccupied), // Utiliser 'occupied'
+          _buildSummaryCard('Libres', counts['available'] ?? 0, DashboardColors.statusAvailable),
+          _buildSummaryCard('Occupées', counts['occupied'] ?? 0, DashboardColors.statusOccupied),
         ],
       ),
     );
@@ -191,7 +187,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               color: DashboardColors.primaryText,
             ),
           ),
-          content: Column(
+            content: SingleChildScrollView(
+            child:  Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -372,6 +369,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                   );
                 }),
+                // Articles section
+                const Text(
+                  'Articles :',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                    color: DashboardColors.primaryText,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                (() {
+                  // Capture the non-null order to satisfy Dart's null safety
+                  final Commande order = associatedOrder!;
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(
+                      order.items.length,
+                          (index) {
+                        final item = order.items[index];
+                        final imagePath = item['image_path'] as String? ?? 'placeholder.jpg';
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+                          leading: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              image: DecorationImage(
+                                image: AssetImage('assets/images/$imagePath'),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                          title: Text(item['food_name'] as String),
+                          subtitle: Text('Quantité: ${item['quantity']}'),
+                          trailing: Text('${item['price'].toStringAsFixed(2)} DT'),
+                        );
+                      },
+                    ),
+                  );
+                }()),
                 // Prix total de la commande
                 Text(
                   'Total: ${associatedOrder.totalPrice.toStringAsFixed(2)} DT',
@@ -504,6 +543,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ],
           ),
+            ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -531,17 +571,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (_tablesError != null) {
       return Center(child: Text('Erreur: $_tablesError'));
     }
-    return Column(
-      children: [
-        _buildStatusSummaryHeader(),
-        Expanded(
-          child: GridView.builder(
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          _buildStatusSummaryHeader(),
+          GridView.builder(
+            shrinkWrap: true, // 👈 Add this line
+            physics: NeverScrollableScrollPhysics(), // 👈 Add this line
             padding: const EdgeInsets.all(16.0),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 3,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: 0.95,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              childAspectRatio: 0.9,
             ),
             itemCount: _maxTableNumber - _minTableNumber + 1,
             itemBuilder: (context, index) {
@@ -580,69 +622,76 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                     border: Border.all(color: color.withOpacity(0.5), width: 1.5),
                   ),
+
                   child: Padding(
-                    padding: const EdgeInsets.all(12.0),
+                    padding: const EdgeInsets.all(6.0),
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Container(
-                          width: 50,
-                          height: 50,
+                          width: 32,
+                          height: 32,
                           decoration: BoxDecoration(
                             color: color.withOpacity(0.15),
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(icon, size: 28, color: color),
+                          child: Icon(icon, size: 16, color: color),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 2),
                         Text(
-                          'Table $tableNumber',
+                          'T$tableNumber',
                           style: const TextStyle(
                             fontFamily: 'Poppins',
-                            fontSize: 18,
+                            fontSize: 12,
                             fontWeight: FontWeight.w700,
                             color: DashboardColors.primaryText,
                           ),
-                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 1),
                         Text(
                           statusText,
                           style: TextStyle(
                             fontFamily: 'Poppins',
-                            fontSize: 14,
+                            fontSize: 10,
                             fontWeight: FontWeight.w600,
                             color: color,
                           ),
-                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         if (lowerCaseStatus == 'occupied' || lowerCaseStatus == 'occupée')
                           Padding(
-                            padding: const EdgeInsets.only(top: 4.0),
+                            padding: const EdgeInsets.only(top: 1.0),
                             child: Text(
                               _timeElapsed(DateTime.tryParse(table.timeOccupied ?? '')),
                               style: const TextStyle(
                                 fontFamily: 'Poppins',
-                                fontSize: 12,
+                                fontSize: 8,
                                 color: Colors.grey,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                        // Afficher le résumé de la commande si disponible
                         if (table.orderSummary?.isNotEmpty == true)
                           Padding(
-                            padding: const EdgeInsets.only(top: 4.0),
-                            child: Text(
-                              table.orderSummary!,
-                              style: const TextStyle(
-                                fontFamily: 'Poppins',
-                                fontSize: 12,
-                                color: Colors.grey,
-                                fontWeight: FontWeight.w500,
+                            padding: const EdgeInsets.only(top: 1.0),
+                            child: SizedBox(
+                              height: 16,
+                              child: Text(
+                                table.orderSummary!.substring(0, min(table.orderSummary!.length, 8)) + '...',
+                                style: const TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 8,
+                                  color: Colors.grey,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                       ],
@@ -652,8 +701,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               );
             },
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
   // PLACEHOLDER WIDGET
@@ -931,7 +980,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.56.1:8082/tables'), // URL de votre API Hono pour les tables
+        Uri.parse('http://192.168.43.8:8082/tables'), // URL de votre API Hono pour les tables
       );
 
       if (response.statusCode == 200) {
@@ -995,7 +1044,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.56.1:8082/commandes'), // URL for all orders
+        Uri.parse('http://192.168.43.8:8082/commandes'), // URL for all orders
       );
 
       if (response.statusCode == 200) {
@@ -1031,7 +1080,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _updateOrderStatus(String orderId, String newStatus) async {
     try {
       final response = await http.put(
-        Uri.parse('http://192.168.56.1:8082/commandes/$orderId/status'),
+        Uri.parse('http://192.168.43.8:8082/commandes/$orderId/status'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'status': newStatus}),
       );
@@ -1085,7 +1134,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _markTableAsAvailable(int tableNumber) async { // Prend le numéro de la table
     try {
       final response = await http.put(
-        Uri.parse('http://192.168.56.1:8082/tables/$tableNumber'), // URL avec le numéro de table
+        Uri.parse('http://192.168.43.8:8082/tables/$tableNumber'), // URL avec le numéro de table
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'status': 'free'}), // ou 'Libre' selon votre backend
       );
