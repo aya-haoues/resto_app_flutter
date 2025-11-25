@@ -14,7 +14,7 @@ import 'package:collection/collection.dart';
 import 'supplements_management_screen.dart'; // <--- Ajouter cette ligne
 import 'dart:math' show min;
 import 'dart:math'; // <--- AJOUTEZ CETTE LIGNE POUR UTILISER 'min'
-
+import 'specials_management_screen.dart';
 
 
 class DashboardColors {
@@ -1131,7 +1131,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final supabase = Supabase.instance.client;
 
     return DefaultTabController(
-      length: 5,
+      length: 6,
       child: Scaffold(
         backgroundColor: DashboardColors.background,
         appBar: AppBar(
@@ -1174,6 +1174,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const Tab(icon: Icon(Icons.show_chart), text: 'Statistiques'),
               const Tab(icon: Icon(Icons.menu_book), text: 'Menu'),
               const Tab(icon: Icon(Icons.fastfood), text: 'Suppléments'), // <--- Ajouter cet onglet
+              const Tab(icon: Icon(Icons.local_fire_department), text: 'Spéciaux'),
             ],
           ),
         ),
@@ -1184,6 +1185,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _buildStatisticsView(context),
             const MenuManagementScreen(),
             const SupplementsManagementScreen(), // <--- Ajouter cet écran
+            const SpecialsManagementScreen(),
           ],
         ),
       ),

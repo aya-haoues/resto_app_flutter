@@ -12,6 +12,8 @@ class FoodItem {
   final String description;
   final String category;
 
+
+
   // --- CHAMPS AJOUTÉS POUR LA GESTION DES SPÉCIAUX ---
   final bool isDailySpecial; // Champ pour le plat du jour
   final bool isFeaturedPromotion; // Champ pour les promotions

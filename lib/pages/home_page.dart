@@ -4,9 +4,10 @@ import 'package:http/http.dart' as http; // Import pour http
 import 'dart:convert'; // Import pour jsonDecode
 import 'menu_page.dart';
 import 'commandes_page.dart';
-import '../models/food_item.dart';
+import '../models/food_item.dart'; // Assurez-vous que FoodItem contient isDailySpecial, etc.
 import 'order_info_page.dart';
 import 'package:uuid/uuid.dart';
+import 'package:collection/collection.dart';
 
 class HomePage extends StatefulWidget {
   final String? initialClientName;
@@ -50,52 +51,73 @@ class _HomePageState extends State<HomePage> {
   bool _categoriesLoading = true;
   String? _categoriesError;
 
-  // --- Données fictives (maintenues ici pour la démo) ---
-  // Suppression de la liste statique _categories
+  // --- ÉTAT POUR LES SPÉCIAUX (PLAT DU JOUR & PROMOTIONS) ---
+  FoodItem? _dailySpecial;
+  List<FoodItem> _promotionalItems = [];
+  bool _specialsLoading = true;
+  String? _specialsError;
 
-  final DailySpecial _dailySpecialItem = const DailySpecial(
-    name: 'Lablabi Spécial',
-    imagePath: 'assets/images/lablabi.jpg',
-    originalPrice: 7.50,
-    discountedPrice: 5.99,
-    description: 'Soupe de pois chiches épicée avec pain rassis, thon et œuf.',
-  );
+  // --- NOUVELLE FONCTION : Charger les spéciaux depuis l'API ---
+  Future<void> _loadSpecials() async {
+    if (!mounted) return;
+    setState(() {
+      _specialsLoading = true;
+      _specialsError = null;
+    });
 
-  final List<PromotionalItem> _promotionalItems = const [
-    PromotionalItem('Poulet roti', 'assets/images/poulet.jpg', 9.00, 6.99),
-    PromotionalItem('Salade Méchouia', 'assets/images/mechouia.jpg', 5.50, 4.25),
-    PromotionalItem('Sandwich Kafteji', 'assets/images/kafteji.jpg', 8.00, 6.50),
-  ];
+    try {
+      final response = await http.get(Uri.parse('http://192.168.56.1:8082/menu'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        final allItems = data.map((json) => FoodItem.fromJson(json)).toList();
 
+        // ✅ CORRIGÉ : Utiliser firstWhereOrNull
+        final dailySpecial = allItems.firstWhereOrNull((item) => item.isDailySpecial);
+        final promotionalItems = allItems.where((item) => item.isFeaturedPromotion).toList();
+
+        if (mounted) {
+          setState(() {
+            _dailySpecial = dailySpecial; // Peut être null
+            _promotionalItems = promotionalItems;
+            _specialsLoading = false;
+          });
+        }
+      } else {
+        throw Exception('Erreur ${response.statusCode}');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _specialsError = 'Erreur: $e';
+          _specialsLoading = false;
+        });
+      }
+    }
+  }
 
 
   // --- NOUVELLE FONCTION : Charger les catégories depuis l'API ---
   Future<void> _loadDynamicCategories() async {
-    if (!mounted) return; // Vérifier si le widget est encore monté
+    if (!mounted) return;
     setState(() {
       _categoriesLoading = true;
-      _categoriesError = null; // Réinitialiser l'erreur
+      _categoriesError = null;
     });
 
     try {
-      final response = await http.get(
-        Uri.parse('http://192.168.56.1:8082/categories'), // URL de votre API
-      );
-
+      final response = await http.get(Uri.parse('http://192.168.56.1:8082/categories'));
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        // Convertir la réponse JSON en liste de Category
-        // On suppose que la réponse est une liste d'objets avec un champ 'name'
         final List<Category> loadedCategories = data
             .map((json) => Category(
           json['name'] as String,
-          _getEmojiForCategory(json['name'] as String), // Associer un emoji
-          _getColorForCategory(json['name'] as String), // Associer une couleur
-          'assets/images/placeholder.jpg', // Image par défaut
+          _getEmojiForCategory(json['name'] as String),
+          _getColorForCategory(json['name'] as String),
+          'assets/images/placeholder.jpg',
         ))
             .toList();
 
-        if (mounted) { // Vérifier à nouveau avant setState
+        if (mounted) {
           setState(() {
             _dynamicCategories = loadedCategories;
             _categoriesLoading = false;
@@ -120,26 +142,17 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _checkForExistingOrder(String clientName, int tableNumber) async {
-    final url = Uri.parse(
-        'http://192.168.56.1:8082/client-order?client_name=$clientName&table_number=$tableNumber');
+    final url = Uri.parse('http://192.168.56.1:8082/client-order?client_name=$clientName&table_number=$tableNumber');
 
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        // ✅ We found an existing order!
-        setState(() {
-          // Update the state to reflect the existing order details
-          // You might want to populate _panier from the order's items here
-          // For simplicity, we'll just navigate to CommandesPage with the existing order ID
-        });
-
-        // Navigate to CommandesPage, passing the existing order's ID
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (context) => CommandesPage(
-              panier: _panier, // You might need to reconstruct this from the order data
+              panier: _panier,
               clientName: clientName,
               tableNumber: tableNumber,
               notes: _notes ?? "",
@@ -147,31 +160,24 @@ class _HomePageState extends State<HomePage> {
           ),
         );
       } else if (response.statusCode == 404) {
-        // No existing order, proceed as normal (user will create a new one)
-        // You don't need to do anything special here; the UI will show the empty cart.
+        // No existing order, proceed as normal
       } else {
-        // Handle other errors
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur de recherche d\'ordre')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur de recherche d\'ordre')));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur réseau: $e')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur réseau: $e')));
     }
   }
+
   // --- FONCTIONS AIDE POUR LES CATÉGORIES DYNAMIQUES ---
-  // Vous pouvez personnaliser ces fonctions pour associer des emojis et couleurs spécifiques
   String _getEmojiForCategory(String name) {
-    // Exemple simple basé sur le nom
     switch (name.toLowerCase()) {
       case 'tunisienne':
         return '🇹🇳';
       case 'américaine':
-        return '🍔';
+        return '🇺🇸';
       case 'italienne':
-        return '🍕';
+        return '🇮🇹';
       case 'desserts':
         return '🍰';
       case 'boissons':
@@ -179,12 +185,11 @@ class _HomePageState extends State<HomePage> {
       case 'plats principaux':
         return '🍽️';
       default:
-        return '🍽️'; // Emoji générique
+        return '🍽️';
     }
   }
 
   Color _getColorForCategory(String name) {
-    // Exemple simple basé sur le nom
     switch (name.toLowerCase()) {
       case 'tunisienne':
         return Colors.red;
@@ -195,16 +200,13 @@ class _HomePageState extends State<HomePage> {
       case 'desserts':
         return Colors.orange;
       case 'boissons':
-        return Colors.blue.shade200;
+        return Colors.cyan;
       case 'plats principaux':
         return Colors.purple;
       default:
-        return Colors.grey.shade300; // Couleur générique
+        return Colors.grey;
     }
   }
-
-
-  // --- Fonctions de Gestion d'État et de Navigation ---
 
   void _addToCart(FoodItem item) {
     setState(() {
@@ -238,9 +240,9 @@ class _HomePageState extends State<HomePage> {
     _notes = widget.initialNotes;
     _orderId = widget.initialOrderId;
     _orderStatus = widget.initialOrderStatus;
-    // Charger les catégories dynamiques après l'initialisation
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadDynamicCategories();
+      _loadSpecials(); // <--- Charger les spéciaux au démarrage
     });
   }
 
@@ -249,14 +251,12 @@ class _HomePageState extends State<HomePage> {
     final List<Widget> pages = [
       _buildHomeContent(),
       MenuPage(onAddToOrder: _addToCart),
-      // Use the new logic to decide what to show on the Commandes page
       if (_clientName != null && _tableNumber != null && _notes != null)
         CommandesPage(
           panier: _panier,
           clientName: _clientName!,
           tableNumber: _tableNumber!,
           notes: _notes!,
-          // Pass the order info to CommandesPage
           orderId: _orderId,
           orderStatus: _orderStatus,
         )
@@ -289,7 +289,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-
   AppBar _buildAppBar() {
     return AppBar(
       title: Column(
@@ -308,18 +307,17 @@ class _HomePageState extends State<HomePage> {
       backgroundColor: _backgroundColor,
       elevation: 0,
       actions: [
-        // Add a logout/back to welcome button
         IconButton(
           icon: Icon(Icons.logout, color: _accentColor),
           tooltip: 'Retour à l\'accueil',
           onPressed: () {
-            // Navigate back to Welcome Page
             Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
           },
         ),
       ],
     );
   }
+
   BottomNavigationBar _buildBottomNavigationBar() {
     return BottomNavigationBar(
       currentIndex: _currentIndex,
@@ -358,17 +356,10 @@ class _HomePageState extends State<HomePage> {
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: _backgroundColor, width: 1),
                     ),
-                    constraints: const BoxConstraints(
-                      minWidth: 16,
-                      minHeight: 16,
-                    ),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                     child: Text(
                       _panier.length.toString(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -390,17 +381,10 @@ class _HomePageState extends State<HomePage> {
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: _backgroundColor, width: 1),
                     ),
-                    constraints: const BoxConstraints(
-                      minWidth: 18,
-                      minHeight: 18,
-                    ),
+                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
                     child: Text(
                       _panier.length.toString(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -421,11 +405,11 @@ class _HomePageState extends State<HomePage> {
         children: [
           _buildSearchBar(),
           const SizedBox(height: 24),
-          _buildCategoriesSection(), // <--- Appelle la section mise à jour
+          _buildCategoriesSection(),
           const SizedBox(height: 32),
-          _buildDailySpecialSection(),
+          _buildDailySpecialSection(), // <--- Section mise à jour
           const SizedBox(height: 32),
-          _buildPromotionalSection(),
+          _buildPromotionalSection(), // <--- Section mise à jour
           const SizedBox(height: 32),
           _buildPopularHorizontalListSection(),
           const SizedBox(height: 32),
@@ -455,26 +439,21 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // --- SECTION CATÉGORIES MISE À JOUR ---
   Widget _buildCategoriesSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Cuisines & Catégories',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: _textPrimary,
-          ),
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _textPrimary),
         ),
         const SizedBox(height: 16),
         if (_categoriesLoading)
-          const Center(child: CircularProgressIndicator()) // Afficher un indicateur de chargement
+          const Center(child: CircularProgressIndicator())
         else if (_categoriesError != null)
-          Center(child: Text('Erreur: $_categoriesError')) // Afficher l'erreur
+          Center(child: Text('Erreur: $_categoriesError'))
         else if (_dynamicCategories.isEmpty)
-            const Center(child: Text('Aucune catégorie disponible.')) // Afficher si vide
+            const Center(child: Text('Aucune catégorie disponible.'))
           else
             SizedBox(
               height: 100,
@@ -493,9 +472,15 @@ class _HomePageState extends State<HomePage> {
   Widget _buildCategoryItem(Category category) {
     return GestureDetector(
       onTap: () {
-        // Logique de navigation/filtrage si nécessaire
-        // Par exemple, naviguer vers MenuPage et filtrer par catégorie
-        // Navigator.push(context, MaterialPageRoute(builder: (context) => MenuPage(categoryFilter: category.name)));
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MenuPage(
+              onAddToOrder: (item) {},
+              initialCategory: category.name,
+            ),
+          ),
+        );
       },
       child: Container(
         width: 80,
@@ -506,24 +491,20 @@ class _HomePageState extends State<HomePage> {
               width: 60,
               height: 60,
               decoration: BoxDecoration(
-                color: category.color.withOpacity(0.2), // Utiliser la couleur dynamique avec transparence
+                color: category.color.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Center(
                 child: Text(
-                  category.emoji, // Utiliser l'emoji dynamique
+                  category.emoji,
                   style: const TextStyle(fontSize: 24),
                 ),
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              category.name, // Utiliser le nom dynamique
-              style: TextStyle(
-                color: _textPrimary,
-                fontWeight: FontWeight.w500,
-                fontSize: 12,
-              ),
+              category.name,
+              style: TextStyle(color: _textPrimary, fontWeight: FontWeight.w500, fontSize: 12),
               textAlign: TextAlign.center,
               maxLines: 2,
             ),
@@ -533,145 +514,134 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ... (le reste des fonctions _buildDailySpecialSection, _buildPromotionalSection, etc., reste inchangé) ...
-
+  // --- SECTION PLAT DU JOUR MISE À JOUR ---
   Widget _buildDailySpecialSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           ' Plat du Jour',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: _textPrimary,
-          ),
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _textPrimary),
         ),
         const SizedBox(height: 16),
-        Container(
-          height: 200,
-          decoration: BoxDecoration(
-            color: _backgroundColor,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.red.shade100,
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+        if (_specialsLoading)
+          const Center(child: CircularProgressIndicator())
+        else if (_specialsError != null)
+          Center(child: Text('Erreur: $_specialsError'))
+        else if (_dailySpecial != null)
+            Container(
+              height: 200,
+              decoration: BoxDecoration(
+                color: _backgroundColor,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.red.shade100,
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+                image: DecorationImage(
+                  image: AssetImage(_dailySpecial!.imagePath),
+                  fit: BoxFit.cover,
+                  colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.3), BlendMode.darken),
+                ),
               ),
-            ],
-            image: DecorationImage(
-              image: AssetImage(_dailySpecialItem.imagePath),
-              fit: BoxFit.cover,
-              colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.3), BlendMode.darken),
-            ),
-          ),
-          child: Stack(
-            children: [
-              // Informations textuelles
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Text(
-                      _dailySpecialItem.name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 24,
-                      ),
-                    ),
-                    Text(
-                      _dailySpecialItem.description,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
+              child: Stack(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         Text(
-                          '${_dailySpecialItem.discountedPrice.toStringAsFixed(2)} DT',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 28,
-                          ),
+                          _dailySpecial!.name,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 24),
                         ),
-                        const SizedBox(width: 8),
                         Text(
-                          '${_dailySpecialItem.originalPrice.toStringAsFixed(2)} DT',
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            decoration: TextDecoration.lineThrough,
-                            fontSize: 18,
-                          ),
+                          _dailySpecial!.description,
+                          style: const TextStyle(color: Colors.white70, fontSize: 14),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Text(
+                              '${(_dailySpecial!.discountPrice ?? _dailySpecial!.price).toStringAsFixed(2)} DT',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 28),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${_dailySpecial!.price.toStringAsFixed(2)} DT',
+                              style: const TextStyle(
+                                color: Colors.white54,
+                                decoration: TextDecoration.lineThrough,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-              // Badge "Plat du Jour"
-              Positioned(
-                top: 16,
-                right: 16,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: _accentColor,
-                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Text(
-                    'JOUR',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                  Positioned(
+                    top: 16,
+                    right: 16,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: _accentColor,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        'JOUR',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
-        ),
+            )
+          else
+            const Center(child: Text('Aucun plat du jour.')),
       ],
     );
   }
 
+  // --- SECTION PROMOTIONS MISE À JOUR ---
   Widget _buildPromotionalSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           ' Plats en Promotion',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: _textPrimary,
-          ),
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _textPrimary),
         ),
         const SizedBox(height: 16),
-        SizedBox(
-          height: 140,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: _promotionalItems.length,
-            itemBuilder: (context, index) {
-              return _buildPromotionalItem(_promotionalItems[index]);
-            },
-          ),
-        ),
+        if (_specialsLoading)
+          const Center(child: CircularProgressIndicator())
+        else if (_specialsError != null)
+          Center(child: Text('Erreur: $_specialsError'))
+        else if (_promotionalItems.isNotEmpty)
+            SizedBox(
+              height: 140,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _promotionalItems.length,
+                itemBuilder: (context, index) {
+                  return _buildPromotionalItem(_promotionalItems[index]);
+                },
+              ),
+            )
+          else
+            const Center(child: Text('Aucune promotion.')),
       ],
     );
   }
 
-  Widget _buildPromotionalItem(PromotionalItem item) {
+  Widget _buildPromotionalItem(FoodItem item) {
     return Container(
       width: 250,
       margin: const EdgeInsets.only(right: 16),
@@ -683,20 +653,15 @@ class _HomePageState extends State<HomePage> {
       ),
       child: Row(
         children: [
-          // Image
           Container(
             width: 80,
             height: 80,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
-              image: DecorationImage(
-                image: AssetImage(item.imagePath),
-                fit: BoxFit.cover,
-              ),
+              image: DecorationImage(image: AssetImage(item.imagePath), fit: BoxFit.cover),
             ),
           ),
           const SizedBox(width: 12),
-          // Texte et prix
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -704,11 +669,7 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Text(
                   item.name,
-                  style: TextStyle(
-                    color: _textPrimary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+                  style: TextStyle(color: _textPrimary, fontWeight: FontWeight.bold, fontSize: 16),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -716,21 +677,13 @@ class _HomePageState extends State<HomePage> {
                 Row(
                   children: [
                     Text(
-                      '${item.originalPrice.toStringAsFixed(2)} DT',
-                      style: TextStyle(
-                        color: _textSecondary,
-                        decoration: TextDecoration.lineThrough,
-                        fontSize: 12,
-                      ),
+                      '${item.price.toStringAsFixed(2)} DT',
+                      style: TextStyle(color: _textSecondary, decoration: TextDecoration.lineThrough, fontSize: 12),
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '${item.discountedPrice.toStringAsFixed(2)} DT',
-                      style: TextStyle(
-                        color: _accentColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
+                      '${(item.discountedPrice ?? item.price).toStringAsFixed(2)} DT',
+                      style: TextStyle(color: _accentColor, fontWeight: FontWeight.bold, fontSize: 18),
                     ),
                   ],
                 ),
@@ -741,6 +694,7 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+
 
   Widget _buildPopularHorizontalListSection() {
     return Column(

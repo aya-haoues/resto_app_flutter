@@ -10,28 +10,40 @@ const Color _goldAccent = Color(0xFFD4AF37);     // Or Vif
 const Color _ivoryWhite = Color(0xFFF8FAFC);    // Blanc Ivoire
 const Color _textSecondary = Color(0xFF64748B);  // Gris secondaire
 
-class MenuPage extends StatelessWidget {
+class MenuPage extends StatefulWidget {
   final Function(FoodItem) onAddToOrder;
-  const MenuPage({Key? key, required this.onAddToOrder}) : super(key: key);
+  final String? initialCategory; // <--- NOUVEAU PARAMÈTRE POUR LA CATÉGORIE INITIALE
 
+  const MenuPage({
+    Key? key,
+    required this.onAddToOrder,
+    this.initialCategory, // <--- NOUVEAU PARAMÈTRE
+  }) : super(key: key);
+
+  @override
+  State<MenuPage> createState() => _MenuPageState();
+}
+
+class _MenuPageState extends State<MenuPage> {
   // 🔹 URL de l'API Hono (même que le responsable)
   final String _baseUrl = 'http://192.168.56.1:8082/menu';
-  final String _categoriesUrl = 'http://192.168.56.1:8082/categories'; // <--- AJOUTER CETTE URL
+  final String _categoriesUrl = 'http://192.168.56.1:8082/categories';
 
 
+  late TabController _tabController; // <--- CONTRÔLEUR POUR LES ONGLETS
+
+  // --- MÉTHODES DE CHARGEMENT ---
   Future<List<FoodItem>> _fetchMenu() async {
     final response = await http.get(Uri.parse(_baseUrl));
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
-      // Utilise le factory `fromJson` de votre modèle mis à jour
       return data.map((json) => FoodItem.fromJson(json)).toList();
     } else {
       throw Exception('Échec du chargement du menu');
     }
   }
 
-  // --- NOUVELLE FONCTION : Charger les catégories ---
-  Future<List<String>> _fetchCategories() async { // <--- AJOUTÉ
+  Future<List<String>> _fetchCategories() async {
     final response = await http.get(Uri.parse(_categoriesUrl));
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
@@ -41,11 +53,34 @@ class MenuPage extends StatelessWidget {
     }
   }
 
+  Future<List<FoodItem>> _loadMenu() async {
+    final response = await http.get(Uri.parse(_baseUrl));
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      return data.map((json) => FoodItem.fromJson(json)).toList();
+    } else {
+      throw Exception('Échec du chargement du menu');
+    }
+  }
+
+
+  @override
+  void initState() {
+    super.initState();
+    // Pas besoin de TickerProvider ici
+    _loadMenu(); // Chargez les données sans animation
+  }
+
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
 
   @override
   Widget build(BuildContext context) {
-    // FutureBuilder pour charger les plats
     return FutureBuilder<List<FoodItem>>(
       future: _fetchMenu(),
       builder: (context, snapshot) {
@@ -70,14 +105,10 @@ class MenuPage extends StatelessWidget {
           grouped.putIfAbsent(item.category, () => []).add(item);
         }
 
-        // FutureBuilder imbriqué pour charger les catégories
         return FutureBuilder<List<String>>(
           future: _fetchCategories(),
           builder: (context, categorySnapshot) {
             if (categorySnapshot.connectionState == ConnectionState.waiting) {
-              // Afficher un indicateur de chargement si les catégories sont en attente
-              // et que les plats sont déjà chargés
-              // (ou vous pouvez attendre les deux ensemble si préféré)
               return Scaffold(
                 backgroundColor: _ivoryWhite,
                 appBar: AppBar(
@@ -122,8 +153,7 @@ class MenuPage extends StatelessWidget {
               );
             }
 
-            // Vérifiez si le widget est encore monté avant d'utiliser les données
-            if (!context.mounted) return const SizedBox.shrink(); // ou une page vide si démonté
+            if (!context.mounted) return const SizedBox.shrink();
 
             final categories = categorySnapshot.data!;
 
@@ -142,7 +172,10 @@ class MenuPage extends StatelessWidget {
                       fontSize: 24,
                     ),
                   ),
-
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: _primaryBlue),
+                    onPressed: () => Navigator.pop(context),
+                  ),
                   bottom: TabBar(
                     isScrollable: true,
                     labelColor: _goldAccent,
@@ -160,7 +193,7 @@ class MenuPage extends StatelessWidget {
                       itemBuilder: (context, index) => _buildFoodRow(
                         grouped[categoryName]![index],
                         context,
-                        onAddToOrder,
+                        widget.onAddToOrder,
                       ),
                     );
                   }).toList(),
@@ -173,6 +206,37 @@ class MenuPage extends StatelessWidget {
     );
   }
 
+
+  // --- WIDGETS DE SUPPORT ---
+  Scaffold _buildLoadingScaffold() {
+    return Scaffold(
+      backgroundColor: _ivoryWhite,
+      body: const Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  Scaffold _buildErrorScaffold(String message) {
+    return Scaffold(
+      backgroundColor: _ivoryWhite,
+      appBar: AppBar(
+        backgroundColor: _ivoryWhite,
+        elevation: 0,
+        title: Text(
+          'Le Menu Complet',
+          style: const TextStyle(
+            color: _primaryBlue,
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: _primaryBlue),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: Center(child: Text(message)),
+    );
+  }
 
   Widget _buildFoodRow(
       FoodItem item,
