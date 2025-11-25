@@ -50,7 +50,6 @@ commandesRoute.post('/', async (c) => {
       food_name: item.name,
       price: item.price,
       quantity: item.quantity || 1,
-      image_path: item.image_path || 'placeholder.jpg',
       supplements: item.supplements || [], // <-- SUPPLÉMENTS
     }));
 
@@ -118,7 +117,6 @@ commandesRoute.get('/', async (c) => {
           food_name,
           price,
           quantity,
-          image_path,
           supplements
         )
       `)

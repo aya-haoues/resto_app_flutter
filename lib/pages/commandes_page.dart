@@ -605,7 +605,7 @@ class _CommandesPageState extends State<CommandesPage> {
 
     // Charger la liste des suppléments depuis l'API
     try {
-      final response = await http.get(Uri.parse('http://192.168.43.8:8082/supplements'));
+      final response = await http.get(Uri.parse('http://10.187.253.200:8082/supplements'));
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         availableSupplements = data.cast<Map<String, dynamic>>();
@@ -742,7 +742,7 @@ class _CommandesPageState extends State<CommandesPage> {
                     // Enregistrer les modifications dans la base de données
                     try {
                       final response = await http.put(
-                        Uri.parse('http://192.168.43.8:8082/menu/${item.id}'),
+                        Uri.parse('http://10.187.253.200:8082/menu/${item.id}'),
                         headers: {'Content-Type': 'application/json'},
                         body: jsonEncode({
                           'supplements': selectedSupplements,
@@ -979,7 +979,7 @@ class _CommandesPageState extends State<CommandesPage> {
       return;
     }
     setState(() => _isSubmitting = true);
-    final String backendUrl = dotenv.env['BACKEND_URL'] ?? 'http://192.168.43.8:8082/commandes';
+    final String backendUrl = dotenv.env['BACKEND_URL'] ?? 'http://10.187.253.200:8082/commandes';
     final Uri url = Uri.parse(backendUrl);
     final body = {
       "client_name": widget.clientName,
@@ -1022,7 +1022,7 @@ class _CommandesPageState extends State<CommandesPage> {
   Future<void> _markTableAsFree() async {
     try {
       final response = await http.put(
-        Uri.parse('http://192.168.43.8:8082/tables/${widget.tableNumber}'),
+        Uri.parse('http://10.187.253.200:8082/tables/${widget.tableNumber}'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'status': 'free',

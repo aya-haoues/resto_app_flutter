@@ -7,7 +7,7 @@ import '../models/food_item.dart';
 // Couleurs (ajustez selon votre thème)
 const Color _primaryBlue = Color(0xFF0D3B66);
 const Color _goldAccent = Color(0xFFD4AF37);
-const Color _ivoryWhite = Color(0xFFFFF0F0);
+const Color _ivoryWhite = Color(0xFFFFFFFF);
 const Color _textSecondary = Color(0xFF64748B);
 const Color _oliveGreen = Color(0xFF6B8E23);
 const Color _pimentRed = Color(0xFFE63946);
@@ -25,8 +25,8 @@ class _SpecialsManagementScreenState extends State<SpecialsManagementScreen> {
   List<FoodItem> _promotionalItems = [];
   List<FoodItem> _allMenuItems = [];
 
-  final String _specialsUrl = 'http://192.168.43.8:8082/specials';
-  final String _menuUrl = 'http://192.168.43.8:8082/menu';
+  final String _specialsUrl = 'http://10.187.253.200:8082/specials';
+  final String _menuUrl = 'http://10.187.253.200:8082/menu';
 
   @override
   void initState() {

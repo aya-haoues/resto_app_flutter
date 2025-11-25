@@ -14,7 +14,7 @@ class SupplementsManagementScreen extends StatefulWidget {
 
 class _SupplementsManagementScreenState
     extends State<SupplementsManagementScreen> {
-  final String _supplementsUrl = 'http://192.168.43.8:8082/supplements';
+  final String _supplementsUrl = 'http://10.187.253.200:8082/supplements';
   List<Supplement> _supplements = [];
   bool _isLoading = true;
   String? _error;

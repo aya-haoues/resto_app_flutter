@@ -980,7 +980,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.43.8:8082/tables'), // URL de votre API Hono pour les tables
+        Uri.parse('http://10.187.253.200:8082/tables'), // URL de votre API Hono pour les tables
       );
 
       if (response.statusCode == 200) {
@@ -1044,7 +1044,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.43.8:8082/commandes'), // URL for all orders
+        Uri.parse('http://10.187.253.200:8082/commandes'), // URL for all orders
       );
 
       if (response.statusCode == 200) {
@@ -1080,7 +1080,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _updateOrderStatus(String orderId, String newStatus) async {
     try {
       final response = await http.put(
-        Uri.parse('http://192.168.43.8:8082/commandes/$orderId/status'),
+        Uri.parse('http://10.187.253.200:8082/commandes/$orderId/status'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'status': newStatus}),
       );
@@ -1134,7 +1134,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _markTableAsAvailable(int tableNumber) async { // Prend le numéro de la table
     try {
       final response = await http.put(
-        Uri.parse('http://192.168.43.8:8082/tables/$tableNumber'), // URL avec le numéro de table
+        Uri.parse('http://10.187.253.200:8082/tables/$tableNumber'), // URL avec le numéro de table
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'status': 'free'}), // ou 'Libre' selon votre backend
       );

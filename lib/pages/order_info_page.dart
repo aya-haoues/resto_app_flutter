@@ -142,7 +142,7 @@ class _OrderInfoPageState extends State<OrderInfoPage>
     try {
       final response = await http.get(
         Uri.parse(
-            'http://192.168.43.8:8082/client-order?client_name=$clientName&table_number=$tableNumber'),
+            'http://10.187.253.200:8082/client-order?client_name=$clientName&table_number=$tableNumber'),
       );
 
       if (response.statusCode == 200) {
@@ -265,7 +265,7 @@ class _OrderInfoPageState extends State<OrderInfoPage>
     final availableTables = <int>[];
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.43.8:8082/tables'),
+        Uri.parse('http://10.187.253.200:8082/tables'),
       );
       if (response.statusCode == 200) {
         final List<dynamic> tablesData = jsonDecode(response.body);
@@ -285,7 +285,7 @@ class _OrderInfoPageState extends State<OrderInfoPage>
   Future<String?> _checkTableStatus(int tableNumber) async {
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.43.8:8082/check-table/$tableNumber'),
+        Uri.parse('http://10.187.253.200:8082/check-table/$tableNumber'),
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -301,7 +301,7 @@ class _OrderInfoPageState extends State<OrderInfoPage>
   Future<void> _markTableAsOccupied(int tableNumber, String? notes) async {
     try {
       final response = await http.put(
-        Uri.parse('http://192.168.43.8:8082/tables/$tableNumber'),
+        Uri.parse('http://10.187.253.200:8082/tables/$tableNumber'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'status': 'occupied',

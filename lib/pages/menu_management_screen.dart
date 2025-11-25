@@ -66,8 +66,8 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
   List<Category> _categories = []; // <--- CHANGÉ : Maintenant une liste d'objets Category
   bool _isLoading = true;
   bool _categoriesLoading = true; // <--- AJOUTER CETTE VARIABLE
-  final String _baseUrl = 'http://192.168.43.8:8082/menu';
-  final String _categoriesUrl = 'http://192.168.43.8:8082/categories'; // <--- AJOUTER CETTE URL
+  final String _baseUrl = 'http://10.187.253.200:8082/menu';
+  final String _categoriesUrl = 'http://10.187.253.200:8082/categories'; // <--- AJOUTER CETTE URL
 
   // --- FONCTION : Charger les catégories ---
   Future<void> _loadCategories() async {

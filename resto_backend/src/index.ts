@@ -45,7 +45,7 @@ app.use('*', logger());
 app.use(
   '*',
   cors({
-    origin: ['http://localhost:3000', 'http://10.0.2.2:8081', 'http://10.0.2.2:8082' , 'http://192.168.43.8:8082' ],
+    origin: ['http://localhost:3000', 'http://10.0.2.2:8081', 'http://10.0.2.2:8082' , 'http://10.187.253.200:8082' ],
     allowHeaders: ['Content-Type'],
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE'],
   })
